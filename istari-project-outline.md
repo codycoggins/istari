@@ -50,36 +50,38 @@ These principles are non-negotiable and should shape every architectural and UX 
 │   Web UI (React/TS)   │   Matrix/Element (future)│
 └───────────────────────┬─────────────────────────┘
                         │
-┌───────────────────────▼─────────────────────────┐
-│               API / Gateway Layer                │
-│          FastAPI  (Python)                       │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│              Agent Orchestration Layer           │
-│         LangGraph  (Python)                      │
-│  ┌──────────┐  ┌───────────┐  ┌───────────────┐ │
-│  │ Chat     │  │ Proactive │  │ Memory/Recall │ │
-│  │ Agent    │  │ Agent     │  │ Agent         │ │
-│  └──────────┘  └───────────┘  └───────────────┘ │
-│                      │                           │
-│          ┌───────────▼──────────┐                │
-│          │  Content Classifier  │                │
-│          │  (sensitivity + LLM  │                │
-│          │   routing)           │                │
-│          └──────────────────────┘                │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│                  Tool / MCP Layer                │
-│  Gmail │ Filesystem │ Calendar │ Git │ (more...) │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│              Storage & Memory Layer              │
-│  PostgreSQL + pgvector │ Redis (scheduler state) │
-└─────────────────────────────────────────────────┘
+        ┌───────────────┴────────────────┐
+        │                                │
+┌───────▼───────────────┐   ┌────────────▼───────────────┐
+│   API Service          │   │   Worker Service            │
+│   FastAPI (Python)     │   │   Proactive Agent +         │
+│                        │   │   APScheduler (Python)      │
+│   • Chat Agent         │   │                             │
+│   • Memory/Recall      │   │   • Gmail digest (8am/2pm)  │
+│     Agent              │   │   • TODO staleness check    │
+│   • On-demand queries  │   │   • Pattern learning        │
+│                        │   │   • Queues output as        │
+│                        │   │     notifications in DB     │
+└───────────┬────────────┘   └────────────┬───────────────┘
+            │                             │
+            │    ┌────────────────────┐   │
+            └───►│  Content Classifier│◄──┘
+                 │  (local — runs in  │
+                 │  both services)    │
+                 └─────────┬──────────┘
+                           │
+            ┌──────────────▼──────────────────┐
+            │          Tool / MCP Layer        │
+            │  Gmail │ FS │ Calendar │ Git │.. │
+            └──────────────┬──────────────────┘
+                           │
+            ┌──────────────▼──────────────────┐
+            │       Storage & Memory Layer     │
+            │   PostgreSQL + pgvector          │
+            └──────────────────────────────────┘
 ```
+
+**Key architectural decision:** The API service and Worker service are **separate processes** in Docker Compose, sharing the PostgreSQL database. They never compete for the same event loop. The worker queues all proactive output as notification rows in the database; the API server reads and serves them. Long-running Ollama inference in the worker cannot block or slow the chat interface.
 
 ### 3.2 Language / Runtime Split
 
@@ -101,14 +103,16 @@ Multi-language is acceptable if the boundary is clean (API contract between fron
 | Concern | Technology |
 |---|---|
 | Agent orchestration | LangGraph |
-| API framework | FastAPI |
+| API service | FastAPI (chat agent, memory/recall, on-demand queries) |
+| Worker service | Python process + APScheduler (proactive agent, scheduled tasks) |
 | Frontend | React + TypeScript (Vite) |
-| Primary DB | PostgreSQL with pgvector extension |
-| Scheduler / job queue | APScheduler (MVP); migrate to Celery if complexity grows |
+| Primary DB | PostgreSQL with pgvector extension (shared between API and worker) |
 | LLM routing | LiteLLM (abstracts Ollama / Claude / Gemini behind one interface) |
 | Extensibility | MCP (Model Context Protocol) |
-| Containerization | Docker + Docker Compose |
+| Containerization | Docker + Docker Compose (api, worker, postgres as separate services) |
 | Version control | Git |
+
+> **Note on Redis:** Redis is not required. The API and worker services communicate via the shared PostgreSQL database — the worker writes notifications/digests as rows; the API reads and serves them. This keeps the stack simpler and avoids an additional service to operate.
 
 ### 4.2 LLM Strategy
 
@@ -321,7 +325,7 @@ user_settings
   key, value  -- quiet_hours_start, quiet_hours_end, focus_mode, digest_schedule, etc.
 ```
 
-pgvector enables semantic search across todos, memories, and digested content without a separate vector DB.
+pgvector enables semantic search across todos, memories, and digested content without a separate vector DB. The `notifications` table replaces any need for Redis as a communication channel between the worker and API services.
 
 ---
 
@@ -348,19 +352,21 @@ Each data source integration is packaged as an MCP-compatible tool server. This 
 ```
 istari/
 ├── backend/
-│   ├── api/               # FastAPI routes (channel-agnostic)
-│   ├── agents/            # LangGraph agent definitions
+│   ├── api/               # FastAPI app — chat agent, on-demand queries, notification serving
+│   │   └── main.py
+│   ├── worker/            # Separate process — proactive agent + APScheduler
+│   │   └── main.py        # Entry point: starts scheduler, runs independently of API
+│   ├── agents/            # LangGraph agent definitions (shared by api + worker)
 │   │   ├── chat.py
 │   │   ├── proactive.py
 │   │   └── memory.py
-│   ├── tools/             # MCP tool implementations
+│   ├── tools/             # MCP tool implementations (shared by api + worker)
 │   │   ├── gmail/
 │   │   ├── filesystem/
 │   │   ├── calendar/
 │   │   ├── git/
 │   │   └── classifier/    # Content sensitivity classifier
-│   ├── models/            # DB models (SQLAlchemy)
-│   ├── scheduler/         # Proactive agent scheduler (APScheduler)
+│   ├── models/            # DB models (SQLAlchemy) — shared by api + worker
 │   ├── llm/               # LiteLLM config + routing logic
 │   ├── config/            # App config (YAML + env)
 │   └── tests/
@@ -372,22 +378,30 @@ istari/
 │   │   ├── components/
 │   │   │   ├── Chat/
 │   │   │   ├── TodoPanel/
-│   │   │   ├── DigestPanel/    # Phase 2
-│   │   │   └── NotificationInbox/  # Phase 2
+│   │   │   ├── DigestPanel/         # Phase 2
+│   │   │   └── NotificationInbox/   # Phase 2
 │   │   ├── pages/
 │   │   └── api/           # API client
 │   └── tests/
-├── docker-compose.yml
+├── docker-compose.yml     # Services: api, worker, postgres
 ├── .env.example
 └── README.md
 ```
+
+**Docker Compose services:**
+
+| Service | What it runs | Can restart independently? |
+|---|---|---|
+| `postgres` | PostgreSQL + pgvector | Yes |
+| `api` | FastAPI + chat agent | Yes — worker outage doesn't affect chat |
+| `worker` | Proactive agent + APScheduler | Yes — can be paused/debugged without touching API |
 
 ---
 
 ## 12. Development Phases
 
 ### Phase 1 — Foundation (MVP)
-- [ ] Project scaffolding: repo (`istari`), Docker Compose, FastAPI skeleton, React/Vite skeleton
+- [ ] Project scaffolding: repo (`istari`), Docker Compose with `api` + `worker` + `postgres` services, FastAPI skeleton, worker skeleton, React/Vite skeleton
 - [ ] PostgreSQL + pgvector setup with initial schema
 - [ ] LiteLLM integration: Claude API + Ollama (Llama 3 / Mistral)
 - [ ] Content classifier: local model or rule-based, sensitivity detection
@@ -402,7 +416,7 @@ istari/
 ### Phase 2 — Gmail + Proactive Agent
 - [ ] `gmail_reader` MCP tool (OAuth2, read-only)
 - [ ] On-demand inbox scan + actionable digest via chat
-- [ ] Proactive Agent + APScheduler: Gmail digest at 8am + 2pm
+- [ ] Proactive Agent + APScheduler in `worker` service: Gmail digest at 8am + 2pm
 - [ ] TODO staleness detection (batched into morning digest)
 - [ ] Notification queue + badge system
 - [ ] Focus mode: badge-only, no push during active focus
@@ -458,7 +472,7 @@ istari/
 
 | Decision | Status | Recommendation |
 |---|---|---|
-| Job scheduler: APScheduler vs. Celery | Resolve before Phase 2 | APScheduler for MVP; migrate to Celery if proactive agent complexity grows |
+| Job scheduler: APScheduler vs. Celery | **Decided: APScheduler in worker service** | Worker is a separate process — APScheduler runs there. Migrate to Celery only if task queue complexity grows significantly. |
 | Local model selection | Resolve before Phase 1 | Benchmark Llama 3.1 8B vs. 3.2 3B on target MacBook Pro — 8B for quality, 3B if latency unacceptable |
 | Secrets management | Resolve before Phase 1 | `.env` for local dev with clear migration path to macOS Keychain or Vault for production |
 | Hosting post-MVP | Resolve before Phase 3 | MacBook Pro now → home server or cloud later; design stateless backend from day one |
@@ -480,6 +494,8 @@ Before starting Phase 1, Claude Code should ask the developer whether any specif
 
 ## 17. Conventions for Claude Code
 
+- **API and worker are separate services** — the proactive agent and APScheduler live in `backend/worker/`, never embedded in the FastAPI app. Long-running LLM inference in the worker must never be able to block or slow the chat interface.
+- **Worker communicates via the database, not in-process** — the worker writes notification/digest rows; the API reads them. No shared in-memory state between the two services.
 - **Project name is `istari`** — use consistently for repo name, Python package name, Docker service names, and CLI references
 - **Always ask before creating new top-level modules** — check if the functionality belongs in an existing one
 - **Prefer composition over inheritance** in agent and tool design
