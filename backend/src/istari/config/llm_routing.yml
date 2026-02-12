@@ -1,0 +1,37 @@
+# LLM routing configuration — maps task types to model tiers.
+# Never hardcode model names in agent code; reference this config.
+
+defaults:
+  # Fallback model when no task-specific config matches
+  model: ollama/llama3
+  temperature: 0.7
+
+tasks:
+  chat_response:
+    model: anthropic/claude-sonnet-4-20250514
+    temperature: 0.7
+    description: User-facing chat responses — high quality
+
+  summarization:
+    model: ollama/llama3
+    temperature: 0.3
+    description: Email/content summarization — local, fast
+
+  classification:
+    model: ollama/llama3
+    temperature: 0.0
+    description: Content sensitivity classification — always local
+
+  embedding:
+    model: ollama/nomic-embed-text
+    description: Vector embeddings — always local
+
+  todo_enrichment:
+    model: gemini/gemini-2.0-flash
+    temperature: 0.3
+    description: TODO metadata inference — mid-complexity
+
+  prioritization:
+    model: anthropic/claude-sonnet-4-20250514
+    temperature: 0.3
+    description: Task prioritization — high-stakes reasoning

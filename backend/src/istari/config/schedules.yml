@@ -1,0 +1,18 @@
+# Worker job schedules — consumed by APScheduler in the worker service.
+
+jobs:
+  gmail_digest_morning:
+    cron: "0 8 * * *"
+    description: Morning Gmail digest
+
+  gmail_digest_afternoon:
+    cron: "0 14 * * *"
+    description: Afternoon Gmail digest
+
+  staleness_check:
+    cron: "0 8 * * *"
+    description: TODO staleness check (batched into morning digest)
+
+  learning_update:
+    cron: "0 3 * * *"
+    description: Pattern learning update (overnight)
