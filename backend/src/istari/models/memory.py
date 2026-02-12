@@ -3,13 +3,13 @@
 import enum
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Enum, Float, String, Text, func
+from sqlalchemy import DateTime, Enum, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from istari.models.base import Base, TimestampMixin
 
 
-class MemoryType(str, enum.Enum):
+class MemoryType(enum.StrEnum):
     EXPLICIT = "explicit"
     INFERRED = "inferred"
     EPISODIC = "episodic"

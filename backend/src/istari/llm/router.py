@@ -8,6 +8,6 @@ async def completion(task_type: str, messages: list[dict], **kwargs) -> dict:  #
 
     The content classifier must be invoked BEFORE calling this function.
     """
-    config = get_model_config(task_type)
+    _config = get_model_config(task_type)
     # LiteLLM integration will be wired here
     raise NotImplementedError(f"LLM routing not yet implemented for task: {task_type}")

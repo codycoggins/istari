@@ -11,13 +11,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from istari.models.base import Base, TimestampMixin
 
 
-class TodoStatus(str, enum.Enum):
+class TodoStatus(enum.StrEnum):
     ACTIVE = "active"
     COMPLETED = "completed"
     DEFERRED = "deferred"
 
 
-class PrioritySource(str, enum.Enum):
+class PrioritySource(enum.StrEnum):
     INFERRED = "inferred"
     USER_SET = "user_set"
 
