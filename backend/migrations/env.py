@@ -6,6 +6,8 @@ from sqlalchemy import create_engine, pool
 
 from istari.models.base import Base
 
+import istari.models  # noqa: F401 — register all models on Base.metadata
+
 config = context.config
 
 if config.config_file_name is not None:

@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.30",
+    "psycopg2-binary>=2.9",
     "pgvector>=0.3",
     "alembic>=1.14",
     "pydantic>=2.10",
@@ -33,6 +34,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "httpx>=0.28",
+    "aiosqlite>=0.20",
 ]
 
 [tool.hatch.build.targets.wheel]

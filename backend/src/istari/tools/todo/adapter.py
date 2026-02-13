@@ -1,0 +1,21 @@
+"""TodoStore Protocol — abstract interface for TODO storage backends."""
+
+from typing import Protocol, runtime_checkable
+
+from istari.models.todo import Todo
+
+
+@runtime_checkable
+class TodoStore(Protocol):
+    """Abstract interface for TODO storage.
+
+    Satisfied via structural typing — any class implementing these methods
+    is a valid TodoStore without explicit inheritance.
+    """
+
+    async def create(self, title: str, **kwargs: object) -> Todo: ...
+    async def get(self, todo_id: int) -> Todo | None: ...
+    async def list_active(self) -> list[Todo]: ...
+    async def update(self, todo_id: int, **kwargs: object) -> Todo | None: ...
+    async def complete(self, todo_id: int) -> Todo | None: ...
+    async def get_prioritized(self, limit: int = 3) -> list[Todo]: ...

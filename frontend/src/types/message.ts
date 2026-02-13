@@ -3,4 +3,6 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  todoCreated?: boolean;
+  memoryCreated?: boolean;
 }

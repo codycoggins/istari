@@ -36,4 +36,4 @@ class Todo(TimestampMixin, Base):
     due_date: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     last_prompted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))

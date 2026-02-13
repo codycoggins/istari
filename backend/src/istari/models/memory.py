@@ -25,4 +25,4 @@ class Memory(TimestampMixin, Base):
     last_referenced_at: Mapped[None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_contradicted_at: Mapped[None] = mapped_column(DateTime(timezone=True), nullable=True)
     source: Mapped[str | None] = mapped_column(String(100))
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))

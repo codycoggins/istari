@@ -1,21 +1,81 @@
 import type { Todo } from "../../types/todo";
 import { TodoItem } from "./TodoItem";
 
-export function TodoPanel() {
-  const todos: Todo[] = [];
+interface TodoPanelProps {
+  todos: Todo[];
+  isLoading: boolean;
+  onAskPriorities?: () => void;
+  settings?: Record<string, string>;
+  onToggleFocusMode?: (enabled: boolean) => void;
+}
+
+export function TodoPanel({
+  todos,
+  isLoading,
+  onAskPriorities,
+  settings,
+  onToggleFocusMode,
+}: TodoPanelProps) {
+  const focusMode = settings?.focus_mode === "true";
+  const quietStart = settings?.quiet_hours_start ?? "21";
+  const quietEnd = settings?.quiet_hours_end ?? "7";
 
   return (
     <div style={{ padding: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+        }}
+      >
         <h2 style={{ fontSize: "1rem" }}>TODOs</h2>
-        <button style={{ fontSize: "0.875rem", padding: "0.25rem 0.75rem" }}>
+        <button
+          onClick={onAskPriorities}
+          style={{ fontSize: "0.875rem", padding: "0.25rem 0.75rem" }}
+        >
           What should I work on?
         </button>
       </div>
-      {todos.length === 0 && <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>}
+      {isLoading && <p style={{ color: "#888", fontSize: "0.875rem" }}>Loading...</p>}
+      {!isLoading && todos.length === 0 && (
+        <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>
+      )}
       {todos.map((todo) => (
         <TodoItem key={todo.id} todo={todo} />
       ))}
+
+      {settings && (
+        <div
+          style={{
+            marginTop: "1.5rem",
+            paddingTop: "1rem",
+            borderTop: "1px solid #e0e0e0",
+          }}
+        >
+          <h3 style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>Settings</h3>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.875rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={focusMode}
+              onChange={(e) => onToggleFocusMode?.(e.target.checked)}
+            />
+            Focus mode
+          </label>
+          <p style={{ fontSize: "0.75rem", color: "#888" }}>
+            Quiet hours: {quietStart}:00 – {quietEnd}:00
+          </p>
+        </div>
+      )}
     </div>
   );
 }
