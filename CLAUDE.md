@@ -3,15 +3,26 @@
 See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
-- **Project scaffolding: COMPLETE**
-- All verification checks passing: `pip install`, imports, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **Next up: Phase 1 implementation** (see `istari-project-outline.md` Section 12)
-  - PostgreSQL + pgvector schema (run `alembic revision --autogenerate` to generate initial migration)
-  - LiteLLM integration + content classifier
-  - Chat agent (LangGraph)
-  - TODO CRUD (todo_manager tool + API routes)
-  - Memory store (explicit memory only)
-  - Phase 1 Web UI wiring (chat + TODO sidebar functional)
+- **Phase 1 (MVP): COMPLETE** — 90 backend tests, 8 frontend tests, all lint/typecheck passing
+- All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
+- **What's working end-to-end:**
+  - LangGraph chat agent with regex intent detection (TODO capture, memory write, prioritize, general chat)
+  - WebSocket chat at `/api/chat/ws` — graph nodes are pure, DB writes in handler
+  - LiteLLM routing with sensitive content → local Ollama model
+  - Rule-based content classifier (PII, financial, email, file content)
+  - TODO CRUD with priority-based ordering (API + tool)
+  - Explicit memory store with ILIKE search (API + tool)
+  - Settings with defaults (quiet hours, focus mode)
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel
+- **Still needed before running:** `alembic revision --autogenerate -m "initial schema"` + `alembic upgrade head` (migration not yet generated — requires running PostgreSQL)
+- **Next up: Phase 2** (see `istari-project-outline.md` Section 12)
+  - Gmail reader MCP tool (OAuth2, read-only)
+  - On-demand inbox scan + actionable digest
+  - Proactive agent + APScheduler: Gmail digest at 8am + 2pm
+  - TODO staleness detection (batched into morning digest)
+  - Notification queue + badge system
+  - Focus mode enforcement, quiet hours in scheduler
+  - Phase 2 Web UI: notification inbox, active digest panel
 
 ## Development Commands
 - `cd backend && pip install -e ".[dev]"` — install backend package in editable mode with dev deps
@@ -38,26 +49,56 @@ See `istari-project-outline.md` for the full project specification.
 - **Single pyproject.toml**: one Python package for backend; api + worker share >70% of code (agents, tools, models, llm)
 - **hatchling** as build backend
 - **Single Dockerfile**: `backend/Dockerfile` builds the package; docker-compose overrides CMD per service (uvicorn for api, `python -m` for worker)
-- **Alembic migrations outside package**: `backend/migrations/` — operational artifacts, not importable code; `env.py` imports `istari.models`
+- **Alembic migrations outside package**: `backend/migrations/` — operational artifacts, not importable code; `env.py` imports `istari.models` (all models registered via `import istari.models`)
 - **YAML config inside package**: `istari/config/llm_routing.yml` and `schedules.yml` — included when package is installed
 - **Pydantic Settings**: `istari/config/settings.py` merges .env secrets with YAML config
 - **pgvector/pgvector:pg16** Docker image for PostgreSQL with vector support
 - **Frontend**: standalone Vite + React 19 + TypeScript, communicates via API only, own Dockerfile (multi-stage: node build → nginx serve)
 - **Enums use `enum.StrEnum`** (Python 3.12+)
 
+### Phase 1 Design Decisions
+- **Vector dimension 768** (nomic-embed-text via Ollama), not 1536 (OpenAI)
+- **Intent detection is regex, not LLM** — fast, free, deterministic for Phase 1
+- **LangGraph graph nodes are pure** — no DB writes in graph; all side effects in the WebSocket handler
+- **Sensitive content silently routes to local model** — no user prompt UX in Phase 1 (outline spec calls for prompt in future)
+- **SQLite + aiosqlite for unit tests**, PostgreSQL for integration tests; conftest.py patches Vector/ARRAY/JSON → Text for SQLite compat
+- **TodoStore Protocol** defined in `adapter.py` for future adapters, satisfied via structural typing
+- **WebSocket for chat** at `/api/chat/ws`, REST for everything else
+- **Annotated[Depends]** pattern for FastAPI dependency injection (avoids ruff B008)
+- **Prop drilling in React** — simpler than context for 3 communicating components
+- **Conversation history in-memory** per WebSocket connection (Phase 1; persistent history in future)
+
 ## Key File Locations
 - Backend entry points: `backend/src/istari/api/main.py` (FastAPI app), `backend/src/istari/worker/main.py` (APScheduler)
 - Config: `backend/src/istari/config/settings.py`, `llm_routing.yml`, `schedules.yml`
 - Models: `backend/src/istari/models/` — todo.py, memory.py, digest.py, notification.py, agent_run.py, user.py
 - DB session: `backend/src/istari/db/session.py`
+- Schemas: `backend/src/istari/api/schemas.py` — all Pydantic request/response models
 - Tools: `backend/src/istari/tools/` — base.py, gmail/, filesystem/, calendar/, git/, todo/, memory/, classifier/
-- Agents: `backend/src/istari/agents/` — chat.py, proactive.py, memory.py
-- LLM routing: `backend/src/istari/llm/router.py` + `config.py`
-- API routes: `backend/src/istari/api/routes/` — chat.py, todos.py, notifications.py, memory.py, settings.py
+  - `todo/manager.py` — TodoManager CRUD, `todo/adapter.py` — TodoStore Protocol
+  - `memory/store.py` — MemoryStore (explicit memory, ILIKE search)
+  - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
+- Agents: `backend/src/istari/agents/` — chat.py (LangGraph graph, intent detection), proactive.py (stub), memory.py (stub)
+- LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
+- API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, memory.py, settings.py
 - API deps: `backend/src/istari/api/deps.py`
-- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py, staleness.py, learning.py
+- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py, staleness.py, learning.py (all stubs)
 - Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`
-- Frontend hooks: `frontend/src/hooks/useChat.ts`, `useTodos.ts`, `useNotifications.ts`
-- Frontend API client: `frontend/src/api/client.ts`
-- Tests: `backend/tests/` (conftest.py, unit/, integration/, fixtures/)
+- Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`
+- Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `chat.ts`
+- Tests: `backend/tests/` (conftest.py with SQLite fixture, unit/, integration/, fixtures/)
+  - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests)
+  - `unit/test_classifier/` — rules + tool wrapper (23 tests)
+  - `unit/test_llm/` — router + config (14 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore (18 tests)
+  - `fixtures/llm_responses.py` — canned LiteLLM mock responses
 - Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`
+
+## Patterns to Follow
+- **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
+- **Tools take `session` in constructor**: `TodoManager(session)`, `MemoryStore(session)` — not global
+- **Tests**: pure logic tests need no DB fixture; CRUD tests use `db_session` fixture from conftest
+- **Chat graph**: add new intents by adding patterns to `_TODO_PATTERNS` / `_MEMORY_PATTERNS` / `_PRIORITIZE_PATTERNS`, a new node, and wiring in `build_chat_graph()`
+- **Classifier**: add new rules to `_RULES` list in `rules.py` as `(flag, rule_name, pattern)` tuples
+- **LLM model config**: update `llm_routing.yml`, never hardcode model names in code
+- **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`
