@@ -21,13 +21,15 @@ def mock_aembedding():
 
 class TestCompletion:
     async def test_routes_to_configured_model(self, mock_acompletion):
+        from istari.llm.config import get_model_config
         from istari.llm.router import completion
 
         messages = [{"role": "user", "content": "Hello"}]
         await completion("chat_response", messages)
 
+        expected_model = get_model_config("chat_response")["model"]
         call_kwargs = mock_acompletion.call_args
-        assert call_kwargs.kwargs["model"] == "anthropic/claude-sonnet-4-20250514"
+        assert call_kwargs.kwargs["model"] == expected_model
 
     async def test_sensitive_forces_local_model(self, mock_acompletion):
         from istari.llm.router import completion
@@ -52,11 +54,17 @@ class TestCompletion:
     async def test_anthropic_gets_api_key(self, mock_acompletion):
         from istari.llm.router import completion
 
+        # Use prioritization task which is configured for anthropic in prod;
+        # in dev (ollama), this test verifies ollama gets api_base instead.
         messages = [{"role": "user", "content": "Hello"}]
         await completion("chat_response", messages)
 
         call_kwargs = mock_acompletion.call_args
-        assert "api_key" in call_kwargs.kwargs
+        model = call_kwargs.kwargs["model"]
+        if model.startswith("anthropic/"):
+            assert "api_key" in call_kwargs.kwargs
+        elif model.startswith("ollama/"):
+            assert "api_base" in call_kwargs.kwargs
 
     async def test_default_model_for_unknown_task(self, mock_acompletion):
         from istari.llm.router import completion

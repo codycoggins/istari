@@ -6,6 +6,7 @@ import yaml
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _CONFIG_DIR = Path(__file__).parent
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]  # src/istari/config/ -> project root
 
 
 def _load_yaml(filename: str) -> dict:
@@ -17,7 +18,9 @@ def _load_yaml(filename: str) -> dict:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(_PROJECT_ROOT / ".env"), env_file_encoding="utf-8", extra="ignore"
+    )
 
     # Database
     database_url: str = "postgresql+asyncpg://istari:changeme@localhost:5432/istari"

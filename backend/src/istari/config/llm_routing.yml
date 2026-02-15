@@ -8,9 +8,9 @@ defaults:
 
 tasks:
   chat_response:
-    model: anthropic/claude-sonnet-4-20250514
+    model: ollama/llama3
     temperature: 0.7
-    description: User-facing chat responses — high quality
+    description: User-facing chat responses — local for dev (swap to anthropic/claude for prod)
 
   summarization:
     model: ollama/llama3
@@ -27,11 +27,11 @@ tasks:
     description: Vector embeddings — always local
 
   todo_enrichment:
-    model: gemini/gemini-2.0-flash
+    model: ollama/llama3
     temperature: 0.3
-    description: TODO metadata inference — mid-complexity
+    description: TODO metadata inference — local for dev (swap to gemini for prod)
 
   prioritization:
-    model: anthropic/claude-sonnet-4-20250514
+    model: ollama/llama3
     temperature: 0.3
-    description: Task prioritization — high-stakes reasoning
+    description: Task prioritization — local for dev (swap to anthropic/claude for prod)

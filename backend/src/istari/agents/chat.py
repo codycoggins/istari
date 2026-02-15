@@ -1,14 +1,37 @@
 """Chat agent — LangGraph graph for interactive user conversations.
 
-Intent detection is regex-based (Phase 1): fast, free, deterministic.
-Graph nodes are pure — DB writes happen in the WebSocket handler.
+Intent detection uses LLM classification for robust intent matching
+and TODO normalization. Graph nodes are pure — DB writes happen in
+the WebSocket handler.
 """
 
-import re
+import json
+import logging
 from enum import StrEnum
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
+
+logger = logging.getLogger(__name__)
+
+_VALID_INTENTS = frozenset({"todo_capture", "memory_write", "prioritize", "chat"})
+
+_CLASSIFY_SYSTEM_PROMPT = """\
+You are an intent classifier for a personal assistant. Given a user message, \
+return a JSON object with exactly two keys:
+{"intent": "<intent>", "extracted_content": "<content>"}
+
+Intents:
+- "todo_capture": User wants to add a task, reminder, or TODO. Extract the task \
+and rephrase it as a concise action starting with a verb \
+(e.g., "Pay the condo fee", "Buy groceries", "Schedule dentist appointment").
+- "memory_write": User wants you to remember a fact or preference. Extract the fact.
+- "prioritize": User is asking what to work on or to see their priorities. \
+Set extracted_content to "".
+- "chat": General conversation, questions, or anything else. \
+Set extracted_content to "".
+
+Return ONLY valid JSON, no other text."""
 
 
 class Intent(StrEnum):
@@ -26,64 +49,45 @@ class ChatState(TypedDict, total=False):
     is_sensitive: bool
 
 
-# --- Intent detection patterns ---
-
-_TODO_PATTERNS = [
-    re.compile(r"(?:^|\s)(?:TODO|todo)[\s:]+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)remind\s+me\s+to\s+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)(?:add|create)\s+(?:a\s+)?(?:todo|task)[\s:]+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)(?:i\s+)?need\s+to\s+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)don'?t\s+(?:let\s+me\s+)?forget\s+to\s+(.+)", re.IGNORECASE),
-]
-
-_MEMORY_PATTERNS = [
-    re.compile(r"(?:^|\s)remember\s+that\s+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)(?:note|keep\s+in\s+mind)\s+that\s+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)(?:i\s+)?(?:prefer|like|hate|dislike)\s+(.+)", re.IGNORECASE),
-    re.compile(r"(?:^|\s)(?:fyi|for\s+your\s+info(?:rmation)?)\s*[,:]\s*(.+)", re.IGNORECASE),
-]
-
-_PRIORITIZE_PATTERNS = [
-    re.compile(r"what\s+should\s+i\s+(?:work\s+on|do|focus\s+on)", re.IGNORECASE),
-    re.compile(
-        r"(?:show|list|get)\s+(?:my\s+)?(?:priorities|top\s+(?:todos|tasks))", re.IGNORECASE
-    ),
-    re.compile(r"prioriti[sz]e", re.IGNORECASE),
-]
-
-
-def _detect_intent(text: str) -> tuple[Intent, str]:
-    """Detect user intent and extract relevant content."""
-    for pattern in _TODO_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            return Intent.TODO_CAPTURE, match.group(1).strip()
-
-    for pattern in _MEMORY_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            return Intent.MEMORY_WRITE, match.group(1).strip()
-
-    for pattern in _PRIORITIZE_PATTERNS:
-        if pattern.search(text):
-            return Intent.PRIORITIZE, ""
-
-    return Intent.CHAT, ""
-
-
 # --- Graph nodes ---
 
 
-def classify_node(state: ChatState) -> ChatState:
-    """Classify the user message and detect intent."""
+async def classify_node(state: ChatState) -> ChatState:
+    """Classify the user message via LLM and detect intent."""
+    from istari.llm.router import completion
     from istari.tools.classifier.rules import classify
 
     msg = state["user_message"]
     classification = classify(msg)
-    intent, extracted = _detect_intent(msg)
+
+    intent = Intent.CHAT.value
+    extracted = ""
+
+    try:
+        llm_result = await completion(
+            "classification",
+            [
+                {"role": "system", "content": _CLASSIFY_SYSTEM_PROMPT},
+                {"role": "user", "content": msg},
+            ],
+            sensitive=classification.is_sensitive,
+        )
+        content = llm_result.choices[0].message.content or ""
+        parsed = json.loads(content)
+        raw_intent = parsed.get("intent", "chat")
+        if raw_intent in _VALID_INTENTS:
+            intent = raw_intent
+            extracted = parsed.get("extracted_content", "").strip()
+        else:
+            logger.warning("LLM returned unknown intent %r, falling back to chat", raw_intent)
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        logger.warning("Failed to parse LLM classification response: %s", exc)
+    except Exception:
+        logger.exception("LLM classification call failed")
+
     return {
         **state,
-        "intent": intent.value,
+        "intent": intent,
         "extracted_content": extracted,
         "is_sensitive": classification.is_sensitive,
     }
