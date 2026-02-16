@@ -3,26 +3,28 @@
 See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
-- **Phase 1 (MVP): COMPLETE** — 90 backend tests, 8 frontend tests, all lint/typecheck passing
-- All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
+- **Phase 1 (MVP): COMPLETE** — all lint/typecheck passing
+- **Phase 2 — Notification System: COMPLETE** — 80 backend tests (68 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
+- All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py import error from prior commit), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
+- **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **What's working end-to-end:**
-  - LangGraph chat agent with regex intent detection (TODO capture, memory write, prioritize, general chat)
+  - LangGraph chat agent with LLM-based intent classification
   - WebSocket chat at `/api/chat/ws` — graph nodes are pure, DB writes in handler
   - LiteLLM routing with sensitive content → local Ollama model
   - Rule-based content classifier (PII, financial, email, file content)
   - TODO CRUD with priority-based ordering (API + tool)
   - Explicit memory store with ILIKE search (API + tool)
   - Settings with defaults (quiet hours, focus mode)
-  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel
+  - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read), frontend inbox with badge, 60s polling
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge
 - **Still needed before running:** `alembic revision --autogenerate -m "initial schema"` + `alembic upgrade head` (migration not yet generated — requires running PostgreSQL)
-- **Next up: Phase 2** (see `istari-project-outline.md` Section 12)
+- **Next up: Phase 2 remaining items** (see `istari-project-outline.md` Section 12)
   - Gmail reader MCP tool (OAuth2, read-only)
   - On-demand inbox scan + actionable digest
   - Proactive agent + APScheduler: Gmail digest at 8am + 2pm
   - TODO staleness detection (batched into morning digest)
-  - Notification queue + badge system
   - Focus mode enforcement, quiet hours in scheduler
-  - Phase 2 Web UI: notification inbox, active digest panel
+  - Active digest panel in Web UI
 
 ## Development Commands
 - `cd backend && pip install -e ".[dev]"` — install backend package in editable mode with dev deps
@@ -74,23 +76,24 @@ See `istari-project-outline.md` for the full project specification.
 - Models: `backend/src/istari/models/` — todo.py, memory.py, digest.py, notification.py, agent_run.py, user.py
 - DB session: `backend/src/istari/db/session.py`
 - Schemas: `backend/src/istari/api/schemas.py` — all Pydantic request/response models
-- Tools: `backend/src/istari/tools/` — base.py, gmail/, filesystem/, calendar/, git/, todo/, memory/, classifier/
+- Tools: `backend/src/istari/tools/` — base.py, gmail/, filesystem/, calendar/, git/, todo/, memory/, classifier/, notification/
   - `todo/manager.py` — TodoManager CRUD, `todo/adapter.py` — TodoStore Protocol
   - `memory/store.py` — MemoryStore (explicit memory, ILIKE search)
   - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
+  - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read)
 - Agents: `backend/src/istari/agents/` — chat.py (LangGraph graph, intent detection), proactive.py (stub), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, memory.py, settings.py
 - API deps: `backend/src/istari/api/deps.py`
 - Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py, staleness.py, learning.py (all stubs)
-- Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`
+- Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`, `frontend/src/components/NotificationInbox/`
 - Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`
 - Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `chat.ts`
 - Tests: `backend/tests/` (conftest.py with SQLite fixture, unit/, integration/, fixtures/)
   - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests)
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
-  - `unit/test_tools/` — TodoManager + MemoryStore (18 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager (30 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
 - Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`
 
@@ -101,4 +104,5 @@ See `istari-project-outline.md` for the full project specification.
 - **Chat graph**: add new intents by adding patterns to `_TODO_PATTERNS` / `_MEMORY_PATTERNS` / `_PRIORITIZE_PATTERNS`, a new node, and wiring in `build_chat_graph()`
 - **Classifier**: add new rules to `_RULES` list in `rules.py` as `(flag, rule_name, pattern)` tuples
 - **LLM model config**: update `llm_routing.yml`, never hardcode model names in code
-- **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`
+- **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `refresh`
+- **Notifications**: `NotificationManager(session)` follows same pattern as TodoManager; API routes follow same `DB = Annotated[...]` pattern; frontend polls every 60s for badge updates

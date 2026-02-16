@@ -83,6 +83,29 @@ class SettingsResponse(BaseModel):
     settings: dict[str, str]
 
 
+# --- Notification schemas ---
+
+
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    content: str
+    read: bool
+    read_at: datetime.datetime | None = None
+    suppressed_by: str | None = None
+    created_at: datetime.datetime
+
+
+class NotificationListResponse(BaseModel):
+    notifications: list[NotificationResponse]
+
+
+class UnreadCountResponse(BaseModel):
+    count: int
+
+
 # --- Chat schemas ---
 
 

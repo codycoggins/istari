@@ -3,6 +3,7 @@ export interface Notification {
   type: "digest" | "staleness" | "pattern";
   content: string;
   read: boolean;
-  readAt?: string;
-  createdAt: string;
+  read_at?: string;
+  suppressed_by?: string;
+  created_at: string;
 }
