@@ -12,8 +12,11 @@ class TodoManager:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    _ACTIONABLE = (TodoStatus.OPEN, TodoStatus.IN_PROGRESS, TodoStatus.BLOCKED)
+    _VISIBLE = (TodoStatus.OPEN, TodoStatus.IN_PROGRESS, TodoStatus.BLOCKED, TodoStatus.COMPLETE)
+
     async def create(self, title: str, **kwargs: object) -> Todo:
-        todo = Todo(title=title, status=TodoStatus.ACTIVE, **kwargs)  # type: ignore[arg-type]
+        todo = Todo(title=title, status=TodoStatus.OPEN, **kwargs)  # type: ignore[arg-type]
         self.session.add(todo)
         await self.session.flush()
         return todo
@@ -21,11 +24,24 @@ class TodoManager:
     async def get(self, todo_id: int) -> Todo | None:
         return await self.session.get(Todo, todo_id)
 
-    async def list_active(self) -> list[Todo]:
+    async def list_open(self) -> list[Todo]:
         stmt = (
             select(Todo)
-            .where(Todo.status == TodoStatus.ACTIVE)
+            .where(Todo.status.in_(self._ACTIONABLE))
             .order_by(Todo.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_visible(self) -> list[Todo]:
+        """Return all non-deferred TODOs: actionable first, then completed."""
+        stmt = (
+            select(Todo)
+            .where(Todo.status.in_(self._VISIBLE))
+            .order_by(
+                (Todo.status == TodoStatus.COMPLETE).asc(),
+                Todo.created_at.desc(),
+            )
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -41,13 +57,16 @@ class TodoManager:
         return todo
 
     async def complete(self, todo_id: int) -> Todo | None:
-        return await self.update(todo_id, status=TodoStatus.COMPLETED)
+        return await self.update(todo_id, status=TodoStatus.COMPLETE)
+
+    async def set_status(self, todo_id: int, status: TodoStatus) -> Todo | None:
+        return await self.update(todo_id, status=status)
 
     async def get_prioritized(self, limit: int = 3) -> list[Todo]:
         """Return top TODOs: explicit priority > due date > recency."""
         stmt = (
             select(Todo)
-            .where(Todo.status == TodoStatus.ACTIVE)
+            .where(Todo.status.in_((TodoStatus.OPEN, TodoStatus.IN_PROGRESS)))
             .order_by(
                 Todo.priority.asc().nulls_last(),
                 Todo.due_date.asc().nulls_last(),

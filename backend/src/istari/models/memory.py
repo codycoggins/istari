@@ -19,7 +19,9 @@ class Memory(TimestampMixin, Base):
     __tablename__ = "memories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    type: Mapped[MemoryType] = mapped_column(Enum(MemoryType))
+    type: Mapped[MemoryType] = mapped_column(
+        Enum(MemoryType, values_callable=lambda e: [m.value for m in e]),
+    )
     content: Mapped[str] = mapped_column(Text)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     last_referenced_at: Mapped[None] = mapped_column(DateTime(timezone=True), nullable=True)

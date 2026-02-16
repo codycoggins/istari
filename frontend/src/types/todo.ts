@@ -2,7 +2,7 @@ export interface Todo {
   id: number;
   title: string;
   body?: string;
-  status: "active" | "completed" | "deferred";
+  status: "open" | "in_progress" | "blocked" | "complete" | "deferred";
   priority?: number;
   source?: string;
   sourceLink?: string;

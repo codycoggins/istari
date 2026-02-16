@@ -5,6 +5,7 @@ import {
   getUnreadCount,
   markNotificationRead,
   markAllRead as apiMarkAllRead,
+  completeNotification as apiCompleteNotification,
 } from "../api/notifications";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -53,5 +54,13 @@ export function useNotifications() {
     await refresh();
   }, [refresh]);
 
-  return { notifications, unreadCount, isLoading, markRead, markAllAsRead, refresh };
+  const markCompleted = useCallback(
+    async (id: number) => {
+      await apiCompleteNotification(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  return { notifications, unreadCount, isLoading, markRead, markAllAsRead, markCompleted, refresh };
 }

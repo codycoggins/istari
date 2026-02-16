@@ -1,12 +1,15 @@
 """Chat/conversation endpoints (WebSocket + REST)."""
 
+import contextlib
 import datetime
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 
 from istari.agents.chat import Intent, chat_graph
 from istari.db.session import async_session_factory
+from istari.models.todo import Todo, TodoStatus
 from istari.tools.memory.store import MemoryStore
 from istari.tools.todo.manager import TodoManager
 
@@ -40,6 +43,7 @@ async def chat_ws(ws: WebSocket):
             is_sensitive = result.get("is_sensitive", False)
 
             todo_created = False
+            todo_updated = False
             memory_created = False
 
             async with async_session_factory() as session:
@@ -48,6 +52,37 @@ async def chat_ws(ws: WebSocket):
                     await mgr.create(title=extracted, source="chat")
                     await session.commit()
                     todo_created = True
+
+                elif intent == Intent.TODO_UPDATE.value:
+                    identifier = result.get("todo_identifier", "")
+                    target_status_str = result.get("target_status", "")
+                    try:
+                        new_status = TodoStatus(target_status_str)
+                    except ValueError:
+                        response_text = (
+                            f"I don't recognize the status \"{target_status_str}\". "
+                            f"Valid statuses: {', '.join(s.value for s in TodoStatus)}."
+                        )
+                    else:
+                        mgr = TodoManager(session)
+                        todo = None
+                        with contextlib.suppress(ValueError, TypeError):
+                            todo = await mgr.get(int(identifier))
+                        if todo is None:
+                            stmt = select(Todo).where(
+                                Todo.title.ilike(f"%{identifier}%")
+                            ).limit(1)
+                            row = await session.execute(stmt)
+                            todo = row.scalars().first()
+                        if todo is None:
+                            response_text = f"I couldn't find a TODO matching \"{identifier}\"."
+                        else:
+                            await mgr.set_status(todo.id, new_status)
+                            await session.commit()
+                            todo_updated = True
+                            response_text = (
+                                f"Updated \"{todo.title}\" to {new_status.value}."
+                            )
 
                 elif intent == Intent.MEMORY_WRITE.value and extracted:
                     store = MemoryStore(session)
@@ -100,6 +135,7 @@ async def chat_ws(ws: WebSocket):
                 "content": response_text,
                 "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
                 "todo_created": todo_created,
+                "todo_updated": todo_updated,
                 "memory_created": memory_created,
             })
 

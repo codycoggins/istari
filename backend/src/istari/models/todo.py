@@ -12,8 +12,10 @@ from istari.models.base import Base, TimestampMixin
 
 
 class TodoStatus(enum.StrEnum):
-    ACTIVE = "active"
-    COMPLETED = "completed"
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    BLOCKED = "blocked"
+    COMPLETE = "complete"
     DEFERRED = "deferred"
 
 
@@ -28,9 +30,14 @@ class Todo(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(500))
     body: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[TodoStatus] = mapped_column(Enum(TodoStatus), default=TodoStatus.ACTIVE)
+    status: Mapped[TodoStatus] = mapped_column(
+        Enum(TodoStatus, values_callable=lambda e: [m.value for m in e]),
+        default=TodoStatus.OPEN,
+    )
     priority: Mapped[int | None] = mapped_column()
-    priority_source: Mapped[PrioritySource | None] = mapped_column(Enum(PrioritySource))
+    priority_source: Mapped[PrioritySource | None] = mapped_column(
+        Enum(PrioritySource, values_callable=lambda e: [m.value for m in e]),
+    )
     source: Mapped[str | None] = mapped_column(String(100))
     source_link: Mapped[str | None] = mapped_column(String(1000))
     due_date: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))

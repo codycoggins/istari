@@ -7,6 +7,7 @@ interface NotificationInboxProps {
   isLoading: boolean;
   onMarkRead: (id: number) => void;
   onMarkAllRead: () => void;
+  onMarkCompleted: (id: number) => void;
 }
 
 function formatTime(iso: string): string {
@@ -28,6 +29,7 @@ export function NotificationInbox({
   isLoading,
   onMarkRead,
   onMarkAllRead,
+  onMarkCompleted,
 }: NotificationInboxProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -128,13 +130,27 @@ export function NotificationInbox({
                 borderBottom: "1px solid #f0f0f0",
                 background: n.read ? "transparent" : "#f7fafc",
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "flex-start",
                 gap: "0.5rem",
+                opacity: n.completed ? 0.6 : 1,
               }}
             >
+              <input
+                type="checkbox"
+                checked={n.completed}
+                disabled={n.completed}
+                onChange={() => onMarkCompleted(n.id)}
+                style={{ marginTop: "0.2rem", flexShrink: 0 }}
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: "0.8125rem", margin: 0, lineHeight: 1.4 }}>
+                <p
+                  style={{
+                    fontSize: "0.8125rem",
+                    margin: 0,
+                    lineHeight: 1.4,
+                    textDecoration: n.completed ? "line-through" : "none",
+                  }}
+                >
                   {n.content}
                 </p>
                 <span style={{ fontSize: "0.6875rem", color: "#999" }}>

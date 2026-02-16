@@ -5,5 +5,7 @@ export interface Notification {
   read: boolean;
   read_at?: string;
   suppressed_by?: string;
+  completed: boolean;
+  completed_at?: string;
   created_at: string;
 }

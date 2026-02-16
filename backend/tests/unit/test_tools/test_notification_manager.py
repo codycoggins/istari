@@ -1,5 +1,7 @@
 """Tests for NotificationManager — CRUD against SQLite test DB."""
 
+import datetime
+
 from istari.tools.notification.manager import NotificationManager
 
 
@@ -91,3 +93,38 @@ class TestNotificationManagerCRUD:
         assert len(notifications) == 2
         # Most recently inserted should have higher ID
         assert notifications[0].id > notifications[1].id
+
+    async def test_mark_completed(self, db_session):
+        mgr = NotificationManager(db_session)
+        n = await mgr.create("digest", "Complete me")
+        result = await mgr.mark_completed(n.id)
+        assert result is not None
+        assert result.completed is True
+        assert result.completed_at is not None
+
+    async def test_mark_completed_nonexistent(self, db_session):
+        mgr = NotificationManager(db_session)
+        assert await mgr.mark_completed(9999) is None
+
+    async def test_list_excludes_old_completed(self, db_session):
+        mgr = NotificationManager(db_session)
+        n = await mgr.create("digest", "Old completed")
+        await mgr.mark_completed(n.id)
+        # Set completed_at to yesterday
+        n.completed_at = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+        await db_session.flush()
+        cutoff = datetime.datetime.now(datetime.UTC).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        notifications = await mgr.list_recent(exclude_completed_before=cutoff)
+        assert len(notifications) == 0
+
+    async def test_list_includes_recently_completed(self, db_session):
+        mgr = NotificationManager(db_session)
+        n = await mgr.create("digest", "Just completed")
+        await mgr.mark_completed(n.id)
+        cutoff = datetime.datetime.now(datetime.UTC).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        notifications = await mgr.list_recent(exclude_completed_before=cutoff)
+        assert len(notifications) == 1

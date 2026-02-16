@@ -4,7 +4,7 @@ See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
 - **Phase 1 (MVP): COMPLETE** — all lint/typecheck passing
-- **Phase 2 — Notification System: COMPLETE** — 80 backend tests (68 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
+- **Phase 2 — Notification System: COMPLETE** — 89 backend tests (77 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py import error from prior commit), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **What's working end-to-end:**
@@ -12,10 +12,11 @@ See `istari-project-outline.md` for the full project specification.
   - WebSocket chat at `/api/chat/ws` — graph nodes are pure, DB writes in handler
   - LiteLLM routing with sensitive content → local Ollama model
   - Rule-based content classifier (PII, financial, email, file content)
-  - TODO CRUD with priority-based ordering (API + tool)
+  - TODO CRUD with 5 statuses (open, in_progress, blocked, complete, deferred) + priority-based ordering (API + tool)
   - Explicit memory store with ILIKE search (API + tool)
   - Settings with defaults (quiet hours, focus mode)
-  - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read), frontend inbox with badge, 60s polling
+  - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
+  - **`update_todo` chat intent** — LLM classifies "mark task X as blocked" → finds TODO by ID or title ILIKE → updates status via chat
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge
 - **Still needed before running:** `alembic revision --autogenerate -m "initial schema"` + `alembic upgrade head` (migration not yet generated — requires running PostgreSQL)
 - **Next up: Phase 2 remaining items** (see `istari-project-outline.md` Section 12)
@@ -56,11 +57,11 @@ See `istari-project-outline.md` for the full project specification.
 - **Pydantic Settings**: `istari/config/settings.py` merges .env secrets with YAML config
 - **pgvector/pgvector:pg16** Docker image for PostgreSQL with vector support
 - **Frontend**: standalone Vite + React 19 + TypeScript, communicates via API only, own Dockerfile (multi-stage: node build → nginx serve)
-- **Enums use `enum.StrEnum`** (Python 3.12+)
+- **Enums use `enum.StrEnum`** (Python 3.12+); SQLAlchemy `Enum()` columns **must** use `values_callable=lambda e: [m.value for m in e]` — without it, SQLAlchemy sends `.name` (uppercase) instead of `.value` (lowercase), causing PostgreSQL `InvalidTextRepresentationError`. Guarded by `test_enum_columns_use_values_not_names`.
 
 ### Phase 1 Design Decisions
 - **Vector dimension 768** (nomic-embed-text via Ollama), not 1536 (OpenAI)
-- **Intent detection is regex, not LLM** — fast, free, deterministic for Phase 1
+- **LLM-based intent classification** — `classify_node` coerces `extracted_content` to string (LLMs may return JSON objects instead of plain strings); intent and extracted are set atomically to avoid partial-assignment on parse errors
 - **LangGraph graph nodes are pure** — no DB writes in graph; all side effects in the WebSocket handler
 - **Sensitive content silently routes to local model** — no user prompt UX in Phase 1 (outline spec calls for prompt in future)
 - **SQLite + aiosqlite for unit tests**, PostgreSQL for integration tests; conftest.py patches Vector/ARRAY/JSON → Text for SQLite compat
@@ -80,7 +81,7 @@ See `istari-project-outline.md` for the full project specification.
   - `todo/manager.py` — TodoManager CRUD, `todo/adapter.py` — TodoStore Protocol
   - `memory/store.py` — MemoryStore (explicit memory, ILIKE search)
   - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
-  - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read)
+  - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read, mark_completed)
 - Agents: `backend/src/istari/agents/` — chat.py (LangGraph graph, intent detection), proactive.py (stub), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, memory.py, settings.py
@@ -93,7 +94,8 @@ See `istari-project-outline.md` for the full project specification.
   - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests)
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
-  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager (30 tests)
+  - `unit/test_models/` — enum value + SQLAlchemy enum `values_callable` guard (2 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager (38 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
 - Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`
 
@@ -101,8 +103,10 @@ See `istari-project-outline.md` for the full project specification.
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
 - **Tools take `session` in constructor**: `TodoManager(session)`, `MemoryStore(session)` — not global
 - **Tests**: pure logic tests need no DB fixture; CRUD tests use `db_session` fixture from conftest
-- **Chat graph**: add new intents by adding patterns to `_TODO_PATTERNS` / `_MEMORY_PATTERNS` / `_PRIORITIZE_PATTERNS`, a new node, and wiring in `build_chat_graph()`
+- **Chat graph**: add new intents to `_VALID_INTENTS`, `_CLASSIFY_SYSTEM_PROMPT`, `Intent` enum, a new node, `_route_intent()`, and `build_chat_graph()`; handler in `routes/chat.py` does DB side effects
 - **Classifier**: add new rules to `_RULES` list in `rules.py` as `(flag, rule_name, pattern)` tuples
 - **LLM model config**: update `llm_routing.yml`, never hardcode model names in code
-- **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `refresh`
+- **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `markCompleted`, `refresh`
 - **Notifications**: `NotificationManager(session)` follows same pattern as TodoManager; API routes follow same `DB = Annotated[...]` pattern; frontend polls every 60s for badge updates
+- **TodoStatus enum**: 5 values — `open`, `in_progress`, `blocked`, `complete`, `deferred`; `list_open()` returns `open` + `in_progress` + `blocked` (actionable); `get_prioritized()` returns `open` + `in_progress`
+- **TODO status updates via chat**: `todo_update` intent; LLM extracts `{"identifier", "target_status"}` JSON; handler finds by ID then title ILIKE; `set_status()` convenience method on TodoManager

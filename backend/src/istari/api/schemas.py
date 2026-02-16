@@ -95,6 +95,8 @@ class NotificationResponse(BaseModel):
     read: bool
     read_at: datetime.datetime | None = None
     suppressed_by: str | None = None
+    completed: bool = False
+    completed_at: datetime.datetime | None = None
     created_at: datetime.datetime
 
 
@@ -124,4 +126,5 @@ class ChatResponse(BaseModel):
     content: str
     created_at: datetime.datetime
     todo_created: bool = False
+    todo_updated: bool = False
     memory_created: bool = False

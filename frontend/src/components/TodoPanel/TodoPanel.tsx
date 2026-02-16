@@ -4,6 +4,7 @@ import { TodoItem } from "./TodoItem";
 interface TodoPanelProps {
   todos: Todo[];
   isLoading: boolean;
+  onComplete: (id: number) => void;
   onAskPriorities?: () => void;
   settings?: Record<string, string>;
   onToggleFocusMode?: (enabled: boolean) => void;
@@ -12,6 +13,7 @@ interface TodoPanelProps {
 export function TodoPanel({
   todos,
   isLoading,
+  onComplete,
   onAskPriorities,
   settings,
   onToggleFocusMode,
@@ -43,7 +45,7 @@ export function TodoPanel({
         <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>
       )}
       {todos.map((todo) => (
-        <TodoItem key={todo.id} todo={todo} />
+        <TodoItem key={todo.id} todo={todo} onComplete={onComplete} />
       ))}
 
       {settings && (

@@ -21,3 +21,7 @@ export async function markNotificationRead(id: number): Promise<Notification> {
 export async function markAllRead(): Promise<{ count: number }> {
   return apiFetch("/notifications/read-all", { method: "POST" });
 }
+
+export async function completeNotification(id: number): Promise<Notification> {
+  return apiFetch(`/notifications/${id}/complete`, { method: "POST" });
+}

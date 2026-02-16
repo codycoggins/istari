@@ -1,5 +1,6 @@
 """Tests for TodoManager — CRUD against SQLite test DB."""
 
+from istari.models.todo import TodoStatus
 from istari.tools.todo.manager import TodoManager
 
 
@@ -9,7 +10,7 @@ class TestTodoManagerCRUD:
         todo = await mgr.create("Buy groceries")
         assert todo.id is not None
         assert todo.title == "Buy groceries"
-        assert todo.status.value == "active"
+        assert todo.status.value == "open"
 
     async def test_get_todo(self, db_session):
         mgr = TodoManager(db_session)
@@ -22,12 +23,12 @@ class TestTodoManagerCRUD:
         mgr = TodoManager(db_session)
         assert await mgr.get(9999) is None
 
-    async def test_list_active(self, db_session):
+    async def test_list_open(self, db_session):
         mgr = TodoManager(db_session)
         await mgr.create("Task 1")
         await mgr.create("Task 2")
-        active = await mgr.list_active()
-        assert len(active) == 2
+        open_todos = await mgr.list_open()
+        assert len(open_todos) == 2
 
     async def test_update_todo(self, db_session):
         mgr = TodoManager(db_session)
@@ -45,14 +46,44 @@ class TestTodoManagerCRUD:
         todo = await mgr.create("Finish report")
         completed = await mgr.complete(todo.id)
         assert completed is not None
-        assert completed.status.value == "completed"
+        assert completed.status.value == "complete"
 
-    async def test_completed_not_in_active_list(self, db_session):
+    async def test_complete_not_in_open_list(self, db_session):
         mgr = TodoManager(db_session)
         todo = await mgr.create("Will be completed")
         await mgr.complete(todo.id)
-        active = await mgr.list_active()
-        assert len(active) == 0
+        open_todos = await mgr.list_open()
+        assert len(open_todos) == 0
+
+    async def test_in_progress_in_open_list(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("In progress task")
+        await mgr.set_status(todo.id, TodoStatus.IN_PROGRESS)
+        open_todos = await mgr.list_open()
+        assert len(open_todos) == 1
+        assert open_todos[0].status == TodoStatus.IN_PROGRESS
+
+    async def test_blocked_in_open_list(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Blocked task")
+        await mgr.set_status(todo.id, TodoStatus.BLOCKED)
+        open_todos = await mgr.list_open()
+        assert len(open_todos) == 1
+        assert open_todos[0].status == TodoStatus.BLOCKED
+
+    async def test_set_status(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Status test")
+        updated = await mgr.set_status(todo.id, TodoStatus.DEFERRED)
+        assert updated is not None
+        assert updated.status == TodoStatus.DEFERRED
+
+    async def test_deferred_not_in_open_list(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Deferred task")
+        await mgr.set_status(todo.id, TodoStatus.DEFERRED)
+        open_todos = await mgr.list_open()
+        assert len(open_todos) == 0
 
 
 class TestTodoPrioritization:

@@ -23,7 +23,7 @@ DB = Annotated[AsyncSession, Depends(get_db)]
 @router.get("/", response_model=TodoListResponse)
 async def list_todos(db: DB):
     mgr = TodoManager(db)
-    todos = await mgr.list_active()
+    todos = await mgr.list_visible()
     return TodoListResponse(todos=[TodoResponse.model_validate(t) for t in todos])
 
 

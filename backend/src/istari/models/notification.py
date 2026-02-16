@@ -17,3 +17,5 @@ class Notification(TimestampMixin, Base):
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     read_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     suppressed_by: Mapped[str | None] = mapped_column(String(50))
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    completed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))

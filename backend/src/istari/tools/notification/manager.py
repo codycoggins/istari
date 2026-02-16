@@ -33,6 +33,7 @@ class NotificationManager:
         self,
         limit: int = 20,
         include_read: bool = True,
+        exclude_completed_before: datetime.datetime | None = None,
     ) -> list[Notification]:
         stmt = (
             select(Notification)
@@ -41,6 +42,11 @@ class NotificationManager:
         )
         if not include_read:
             stmt = stmt.where(Notification.read.is_(False))
+        if exclude_completed_before is not None:
+            stmt = stmt.where(
+                (Notification.completed.is_(False))
+                | (Notification.completed_at >= exclude_completed_before)
+            )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -55,6 +61,15 @@ class NotificationManager:
             return None
         notification.read = True
         notification.read_at = datetime.datetime.now(datetime.UTC)
+        await self.session.flush()
+        return notification
+
+    async def mark_completed(self, notification_id: int) -> Notification | None:
+        notification = await self.session.get(Notification, notification_id)
+        if notification is None:
+            return None
+        notification.completed = True
+        notification.completed_at = datetime.datetime.now(datetime.UTC)
         await self.session.flush()
         return notification
 
