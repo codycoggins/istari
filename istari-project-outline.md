@@ -485,8 +485,6 @@ istari/
 
 The following open-source projects were studied during planning (not used as a code base):
 - OpenClaw
-- Clawdbot
-- Maltbot
 
 Before starting Phase 1, Claude Code should ask the developer whether any specific patterns or design decisions from these projects should be incorporated or explicitly avoided.
 
