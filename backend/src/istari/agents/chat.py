@@ -14,7 +14,9 @@ from langgraph.graph import END, StateGraph
 
 logger = logging.getLogger(__name__)
 
-_VALID_INTENTS = frozenset({"todo_capture", "todo_update", "memory_write", "prioritize", "chat"})
+_VALID_INTENTS = frozenset({
+    "todo_capture", "todo_update", "memory_write", "prioritize", "gmail_scan", "chat",
+})
 
 _CLASSIFY_SYSTEM_PROMPT = """\
 You are an intent classifier for a personal assistant. Given a user message, \
@@ -32,6 +34,8 @@ Valid statuses: open, in_progress, blocked, complete, deferred.
 - "memory_write": User wants you to remember a fact or preference. Extract the fact.
 - "prioritize": User is asking what to work on or to see their priorities. \
 Set extracted_content to "".
+- "gmail_scan": User wants to check email, scan inbox, or asks about unread emails. \
+Set extracted_content to an optional search query or "".
 - "chat": General conversation, questions, or anything else. \
 Set extracted_content to "".
 
@@ -43,6 +47,7 @@ class Intent(StrEnum):
     TODO_UPDATE = "todo_update"
     MEMORY_WRITE = "memory_write"
     PRIORITIZE = "prioritize"
+    GMAIL_SCAN = "gmail_scan"
     CHAT = "chat"
 
 
@@ -137,6 +142,12 @@ def todo_update_node(state: ChatState) -> ChatState:
     return {**state, "response": f"__TODO_UPDATE__|{identifier}|{target}"}
 
 
+def gmail_scan_node(state: ChatState) -> ChatState:
+    """Signal a Gmail scan request (handler does the actual API call)."""
+    query = state.get("extracted_content", "")
+    return {**state, "response": f"__GMAIL_SCAN__|{query}"}
+
+
 def chat_respond_node(state: ChatState) -> ChatState:
     """Signal that an LLM call is needed (handler calls the LLM)."""
     return {**state, "response": "__LLM_CALL__"}
@@ -149,6 +160,8 @@ def _route_intent(state: ChatState) -> str:
         return "todo_capture"
     if intent == Intent.TODO_UPDATE.value:
         return "todo_update"
+    if intent == Intent.GMAIL_SCAN.value:
+        return "gmail_scan"
     if intent == Intent.MEMORY_WRITE.value:
         return "memory_write"
     if intent == Intent.PRIORITIZE.value:
@@ -166,6 +179,7 @@ def build_chat_graph() -> StateGraph:
     graph.add_node("classify", classify_node)
     graph.add_node("todo_capture", todo_capture_node)
     graph.add_node("todo_update", todo_update_node)
+    graph.add_node("gmail_scan", gmail_scan_node)
     graph.add_node("memory_write", memory_write_node)
     graph.add_node("prioritize", prioritize_node)
     graph.add_node("chat_respond", chat_respond_node)
@@ -178,6 +192,7 @@ def build_chat_graph() -> StateGraph:
         {
             "todo_capture": "todo_capture",
             "todo_update": "todo_update",
+            "gmail_scan": "gmail_scan",
             "memory_write": "memory_write",
             "prioritize": "prioritize",
             "chat_respond": "chat_respond",
@@ -186,6 +201,7 @@ def build_chat_graph() -> StateGraph:
 
     graph.add_edge("todo_capture", END)
     graph.add_edge("todo_update", END)
+    graph.add_edge("gmail_scan", END)
     graph.add_edge("memory_write", END)
     graph.add_edge("prioritize", END)
     graph.add_edge("chat_respond", END)

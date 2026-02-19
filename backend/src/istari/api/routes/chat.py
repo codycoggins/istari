@@ -8,6 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
 from istari.agents.chat import Intent, chat_graph
+from istari.config.settings import settings
 from istari.db.session import async_session_factory
 from istari.models.todo import Todo, TodoStatus
 from istari.tools.memory.store import MemoryStore
@@ -83,6 +84,52 @@ async def chat_ws(ws: WebSocket):
                             response_text = (
                                 f"Updated \"{todo.title}\" to {new_status.value}."
                             )
+
+                elif intent == Intent.GMAIL_SCAN.value:
+                    query = extracted or ""
+                    try:
+                        from istari.tools.gmail.reader import GmailReader
+
+                        reader = GmailReader(settings.gmail_token_path)
+                        if query:
+                            emails = await reader.search(query, max_results=10)
+                        else:
+                            emails = await reader.list_unread(max_results=10)
+
+                        if not emails:
+                            if not query:
+                                response_text = "No unread emails found."
+                            else:
+                                response_text = f'No emails matching "{query}".'
+                        else:
+                            from istari.llm.router import completion
+
+                            email_lines = [
+                                f"- {e.subject} (from {e.sender}): {e.snippet}"
+                                for e in emails
+                            ]
+                            summary_prompt = "\n".join(email_lines)
+                            llm_result = await completion(
+                                "gmail_summary",
+                                [
+                                    {
+                                        "role": "system",
+                                        "content": (
+                                            "Summarize these emails concisely for the user. "
+                                            "Note which ones need a reply or action."
+                                        ),
+                                    },
+                                    {"role": "user", "content": summary_prompt},
+                                ],
+                            )
+                            response_text = llm_result.choices[0].message.content or summary_prompt
+                    except FileNotFoundError:
+                        response_text = (
+                            "Gmail isn't set up yet. Run `python scripts/setup_gmail.py` "
+                            "to connect your Gmail account."
+                        )
+                    except Exception:
+                        response_text = "I had trouble checking your email. Try again in a moment."
 
                 elif intent == Intent.MEMORY_WRITE.value and extracted:
                     store = MemoryStore(session)

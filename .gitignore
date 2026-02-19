@@ -54,3 +54,4 @@ backend/migrations/versions/*.pyc
 *.key
 credentials.json
 token.json
+gmail_token.json

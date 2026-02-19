@@ -24,6 +24,9 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
     "websockets>=14.0",
+    "google-auth>=2.36",
+    "google-auth-oauthlib>=1.2",
+    "google-api-python-client>=2.160",
 ]
 
 [project.optional-dependencies]

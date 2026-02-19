@@ -35,3 +35,13 @@ tasks:
     model: ollama/llama3
     temperature: 0.3
     description: Task prioritization — local for dev (swap to anthropic/claude for prod)
+
+  digest_summary:
+    model: ollama/llama3
+    temperature: 0.3
+    description: Digest summarization for proactive agent — emails + stale TODOs
+
+  gmail_summary:
+    model: ollama/llama3
+    temperature: 0.3
+    description: On-demand Gmail scan summary for chat responses

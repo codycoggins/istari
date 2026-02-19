@@ -1,7 +1,9 @@
 import { useCallback, useRef } from "react";
 import { ChatPanel } from "./components/Chat/ChatPanel";
+import { DigestPanel } from "./components/DigestPanel/DigestPanel";
 import { NotificationInbox } from "./components/NotificationInbox/NotificationInbox";
 import { TodoPanel } from "./components/TodoPanel/TodoPanel";
+import { useDigests } from "./hooks/useDigests";
 import { useNotifications } from "./hooks/useNotifications";
 import { useSettings } from "./hooks/useSettings";
 import { useTodos } from "./hooks/useTodos";
@@ -17,6 +19,7 @@ export default function App() {
     markCompleted,
   } = useNotifications();
   const { settings, update: updateSetting } = useSettings();
+  const { digests, isLoading: digestsLoading, markReviewed } = useDigests();
   const chatSendRef = useRef<((msg: string) => void) | null>(null);
 
   const handleTodoCreated = useCallback(() => {
@@ -58,6 +61,11 @@ export default function App() {
         <ChatPanel onTodoCreated={handleTodoCreated} />
       </main>
       <aside className="todo-sidebar">
+        <DigestPanel
+          digests={digests}
+          isLoading={digestsLoading}
+          onMarkReviewed={markReviewed}
+        />
         <TodoPanel
           todos={todos}
           isLoading={isLoading}

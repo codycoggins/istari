@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from istari.api.routes import chat, memory, notifications, settings, todos
+from istari.api.routes import chat, digests, memory, notifications, settings, todos
 from istari.config.settings import settings as app_settings
 
 
@@ -31,6 +31,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(todos.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
+app.include_router(digests.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 
 

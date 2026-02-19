@@ -1,5 +1,7 @@
 """TODO manager tool — CRUD for internal TODO store (internal write, not external)."""
 
+import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +63,20 @@ class TodoManager:
 
     async def set_status(self, todo_id: int, status: TodoStatus) -> Todo | None:
         return await self.update(todo_id, status=status)
+
+    async def get_stale(self, days: int = 3) -> list[Todo]:
+        """Return open/in_progress TODOs not updated in the given number of days."""
+        cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days)
+        stmt = (
+            select(Todo)
+            .where(
+                Todo.status.in_((TodoStatus.OPEN, TodoStatus.IN_PROGRESS)),
+                Todo.updated_at < cutoff,
+            )
+            .order_by(Todo.updated_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_prioritized(self, limit: int = 3) -> list[Todo]:
         """Return top TODOs: explicit priority > due date > recency."""

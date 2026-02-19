@@ -4,7 +4,7 @@ See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
 - **Phase 1 (MVP): COMPLETE** — all lint/typecheck passing
-- **Phase 2 — Notification System: COMPLETE** — 89 backend tests (77 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
+- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE** — 105 backend tests (93 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py import error from prior commit), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **What's working end-to-end:**
@@ -17,15 +17,20 @@ See `istari-project-outline.md` for the full project specification.
   - Settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
   - **`update_todo` chat intent** — LLM classifies "mark task X as blocked" → finds TODO by ID or title ILIKE → updates status via chat
-  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge
-- **Still needed before running:** `alembic revision --autogenerate -m "initial schema"` + `alembic upgrade head` (migration not yet generated — requires running PostgreSQL)
-- **Next up: Phase 2 remaining items** (see `istari-project-outline.md` Section 12)
-  - Gmail reader MCP tool (OAuth2, read-only)
-  - On-demand inbox scan + actionable digest
-  - Proactive agent + APScheduler: Gmail digest at 8am + 2pm
-  - TODO staleness detection (batched into morning digest)
-  - Focus mode enforcement, quiet hours in scheduler
-  - Active digest panel in Web UI
+  - **`gmail_scan` chat intent** — "check my email" triggers Gmail scan, LLM summarizes results
+  - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
+  - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
+  - **Worker jobs** — APScheduler with `gmail_digest` (8am + 2pm) and `staleness_check` (8am) from `schedules.yml`; quiet hours enforcement decorator
+  - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
+  - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge, digest panel
+- **Still needed before running:** `alembic revision --autogenerate -m "add digests table"` + `alembic upgrade head` (digests table not yet migrated)
+- **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
+- **Next up:** (see `istari-project-outline.md` for future phases)
+  - Focus mode enforcement in proactive agent (skip non-critical during focus)
+  - Persistent chat history
+  - Calendar integration
+  - Pattern learning (overnight job)
 
 ## Development Commands
 - `cd backend && pip install -e ".[dev]"` — install backend package in editable mode with dev deps
@@ -46,6 +51,7 @@ See `istari-project-outline.md` for the full project specification.
 - `./scripts/dev.sh` — start full stack in dev mode (copies .env.example if needed)
 - `./scripts/reset-db.sh` — drop + recreate + migrate database
 - `./scripts/seed.sh` — seed dev data (placeholder)
+- `python scripts/setup_gmail.py` — OAuth2 Gmail setup (requires `credentials.json` from Google Cloud Console)
 
 ## Architecture Decisions
 - **src-layout**: `backend/src/istari/` — Python package installed via `pip install -e .`, both api and worker import as `from istari.X import ...`
@@ -77,27 +83,31 @@ See `istari-project-outline.md` for the full project specification.
 - Models: `backend/src/istari/models/` — todo.py, memory.py, digest.py, notification.py, agent_run.py, user.py
 - DB session: `backend/src/istari/db/session.py`
 - Schemas: `backend/src/istari/api/schemas.py` — all Pydantic request/response models
-- Tools: `backend/src/istari/tools/` — base.py, gmail/, filesystem/, calendar/, git/, todo/, memory/, classifier/, notification/
-  - `todo/manager.py` — TodoManager CRUD, `todo/adapter.py` — TodoStore Protocol
+- Tools: `backend/src/istari/tools/` — base.py, gmail/, filesystem/, calendar/, git/, todo/, memory/, classifier/, notification/, digest/
+  - `todo/manager.py` — TodoManager CRUD (list_open, list_visible, get_stale, get_prioritized, set_status), `todo/adapter.py` — TodoStore Protocol
   - `memory/store.py` — MemoryStore (explicit memory, ILIKE search)
   - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
   - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read, mark_completed)
-- Agents: `backend/src/istari/agents/` — chat.py (LangGraph graph, intent detection), proactive.py (stub), memory.py (stub)
+  - `gmail/reader.py` — GmailReader (list_unread, search, get_thread) with OAuth2 token
+  - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
+- Agents: `backend/src/istari/agents/` — chat.py (LangGraph chat graph, 6 intents), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
-- API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, memory.py, settings.py
+- API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, digests.py, memory.py, settings.py
 - API deps: `backend/src/istari/api/deps.py`
-- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py, staleness.py, learning.py (all stubs)
-- Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`, `frontend/src/components/NotificationInbox/`
-- Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`
-- Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `chat.ts`
+- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py (implemented), staleness.py (implemented), learning.py (stub)
+- Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`, `frontend/src/components/NotificationInbox/`, `frontend/src/components/DigestPanel/`
+- Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`, `useDigests.ts`
+- Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `digests.ts`, `chat.ts`
 - Tests: `backend/tests/` (conftest.py with SQLite fixture, unit/, integration/, fixtures/)
-  - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests)
+  - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests, pre-existing import error)
+  - `unit/test_agents/test_proactive.py` — proactive agent node tests (10 tests)
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
   - `unit/test_models/` — enum value + SQLAlchemy enum `values_callable` guard (2 tests)
-  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager (38 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + DigestManager (51 tests)
+  - `unit/test_worker/` — worker job tests + quiet hours (5 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
-- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`
+- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`
 
 ## Patterns to Follow
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
@@ -110,3 +120,8 @@ See `istari-project-outline.md` for the full project specification.
 - **Notifications**: `NotificationManager(session)` follows same pattern as TodoManager; API routes follow same `DB = Annotated[...]` pattern; frontend polls every 60s for badge updates
 - **TodoStatus enum**: 5 values — `open`, `in_progress`, `blocked`, `complete`, `deferred`; `list_open()` returns `open` + `in_progress` + `blocked` (actionable); `get_prioritized()` returns `open` + `in_progress`
 - **TODO status updates via chat**: `todo_update` intent; LLM extracts `{"identifier", "target_status"}` JSON; handler finds by ID then title ILIKE; `set_status()` convenience method on TodoManager
+- **Gmail scan via chat**: `gmail_scan` intent; handler creates GmailReader, calls list_unread/search, summarizes via LLM
+- **Proactive agent**: LangGraph `StateGraph` in `proactive.py`; nodes are pure, worker jobs persist results via `NotificationManager`; routing by `task_type` (gmail_digest, morning_digest, staleness_only)
+- **Worker quiet hours**: `respect_quiet_hours(fn)` decorator checks `settings.quiet_hours_start/end` before running; jobs read cron from `schedules.yml`
+- **Digests**: `DigestManager(session)` follows same pattern as NotificationManager; API routes follow same `DB = Annotated[...]` pattern; frontend DigestPanel polls every 60s via `useDigests` hook
+- **GmailReader**: `GmailReader(token_path)` wraps sync Google API in `asyncio.to_thread()`; requires OAuth token from `scripts/setup_gmail.py`

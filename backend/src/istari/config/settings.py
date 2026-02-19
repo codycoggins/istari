@@ -35,9 +35,16 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
 
+    # Gmail OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    gmail_token_path: str = "gmail_token.json"
+    gmail_max_results: int = 20
+
     # Worker
     quiet_hours_start: int = 21
     quiet_hours_end: int = 7
+    stale_todo_days: int = 3
 
     # Logging
     log_level: str = "INFO"

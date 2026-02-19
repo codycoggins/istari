@@ -108,6 +108,25 @@ class UnreadCountResponse(BaseModel):
     count: int
 
 
+# --- Digest schemas ---
+
+
+class DigestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source: str
+    content_summary: str
+    items_json: dict | None = None
+    reviewed: bool
+    reviewed_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+
+
+class DigestListResponse(BaseModel):
+    digests: list[DigestResponse]
+
+
 # --- Chat schemas ---
 
 
