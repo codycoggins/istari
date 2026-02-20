@@ -1,15 +1,21 @@
+import { useEffect } from "react";
 import { useChat } from "../../hooks/useChat";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 
 interface ChatPanelProps {
   onTodoCreated?: () => void;
+  onRegisterSend?: (fn: (msg: string) => void) => void;
 }
 
-export function ChatPanel({ onTodoCreated }: ChatPanelProps) {
+export function ChatPanel({ onTodoCreated, onRegisterSend }: ChatPanelProps) {
   const { messages, isLoading, isConnected, sendMessage } = useChat({
     onTodoCreated,
   });
+
+  useEffect(() => {
+    onRegisterSend?.(sendMessage);
+  }, [onRegisterSend, sendMessage]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>

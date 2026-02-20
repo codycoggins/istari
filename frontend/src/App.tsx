@@ -58,7 +58,10 @@ export default function App() {
         />
       </header>
       <main className="chat-area">
-        <ChatPanel onTodoCreated={handleTodoCreated} />
+        <ChatPanel
+          onTodoCreated={handleTodoCreated}
+          onRegisterSend={(fn) => { chatSendRef.current = fn; }}
+        />
       </main>
       <aside className="todo-sidebar">
         <DigestPanel
