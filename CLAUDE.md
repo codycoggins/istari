@@ -3,10 +3,12 @@
 See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
-- **Phase 1 (MVP): COMPLETE** — all lint/typecheck passing
-- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE** — 105 backend tests (93 excl. pre-existing chat import error), 8 frontend tests, all lint/typecheck passing
-- All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py import error from prior commit), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
+- **Phase 1 (MVP): COMPLETE**
+- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE** — 8 frontend tests passing
+- **Phase 3 (partial): `calendar_reader` tool COMPLETE** — 117 backend tests (excl. pre-existing test_chat.py import error), ruff clean
+- All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
+- **Known mypy issues (pre-existing, not introduced by us):** `google-api-python-client` and `PyYAML` have no type stubs; `routes/chat.py` and `chat.py` have pre-existing strict-mode violations. Run `mypy` on specific new files only to check your own work — compare against `gmail/reader.py` as the baseline for acceptable Google API errors.
 - **What's working end-to-end:**
   - LangGraph chat agent with LLM-based intent classification
   - WebSocket chat at `/api/chat/ws` — graph nodes are pure, DB writes in handler
@@ -18,7 +20,9 @@ See `istari-project-outline.md` for the full project specification.
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
   - **`update_todo` chat intent** — LLM classifies "mark task X as blocked" → finds TODO by ID or title ILIKE → updates status via chat
   - **`gmail_scan` chat intent** — "check my email" triggers Gmail scan, LLM summarizes results
+  - **`calendar_scan` chat intent** — "check my calendar" triggers Google Calendar scan, LLM summarizes results
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
+  - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
   - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
   - **Worker jobs** — APScheduler with `gmail_digest` (8am + 2pm) and `staleness_check` (8am) from `schedules.yml`; quiet hours enforcement decorator
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
@@ -26,10 +30,13 @@ See `istari-project-outline.md` for the full project specification.
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge, digest panel
 - **Still needed before running:** `alembic revision --autogenerate -m "add digests table"` + `alembic upgrade head` (digests table not yet migrated)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
+- **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:** (see `istari-project-outline.md` for future phases)
+  - `filesystem_search` MCP tool (Phase 3)
+  - Context injection at task start — searches Gmail, filesystem, calendar
+  - pgvector semantic search over ingested content
   - Focus mode enforcement in proactive agent (skip non-critical during focus)
   - Persistent chat history
-  - Calendar integration
   - Pattern learning (overnight job)
 
 ## Development Commands
@@ -52,6 +59,7 @@ See `istari-project-outline.md` for the full project specification.
 - `./scripts/reset-db.sh` — drop + recreate + migrate database
 - `./scripts/seed.sh` — seed dev data (placeholder)
 - `python scripts/setup_gmail.py` — OAuth2 Gmail setup (requires `credentials.json` from Google Cloud Console)
+- `python scripts/setup_calendar.py` — OAuth2 Calendar setup (reuses same `credentials.json`; writes separate `calendar_token.json`)
 
 ## Architecture Decisions
 - **src-layout**: `backend/src/istari/` — Python package installed via `pip install -e .`, both api and worker import as `from istari.X import ...`
@@ -89,6 +97,7 @@ See `istari-project-outline.md` for the full project specification.
   - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
   - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read, mark_completed)
   - `gmail/reader.py` — GmailReader (list_unread, search, get_thread) with OAuth2 token
+  - `calendar/reader.py` — CalendarReader (list_upcoming, search, get_event) with OAuth2 token
   - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
 - Agents: `backend/src/istari/agents/` — chat.py (LangGraph chat graph, 6 intents), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
@@ -104,16 +113,16 @@ See `istari-project-outline.md` for the full project specification.
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
   - `unit/test_models/` — enum value + SQLAlchemy enum `values_callable` guard (2 tests)
-  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + DigestManager (51 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + CalendarReader + DigestManager (63 tests)
   - `unit/test_worker/` — worker job tests + quiet hours (5 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
-- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`
+- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`
 
 ## Patterns to Follow
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
 - **Tools take `session` in constructor**: `TodoManager(session)`, `MemoryStore(session)` — not global
 - **Tests**: pure logic tests need no DB fixture; CRUD tests use `db_session` fixture from conftest
-- **Chat graph**: add new intents to `_VALID_INTENTS`, `_CLASSIFY_SYSTEM_PROMPT`, `Intent` enum, a new node, `_route_intent()`, and `build_chat_graph()`; handler in `routes/chat.py` does DB side effects
+- **Chat graph**: adding a new intent requires 8 steps — (1) `_VALID_INTENTS` frozenset, (2) `_CLASSIFY_SYSTEM_PROMPT` bullet, (3) `Intent` enum value, (4) new node function, (5) `_route_intent()` branch, (6) `build_chat_graph()`: `graph.add_node`, entry in the conditional edges dict, AND `graph.add_edge(node, END)`, (7) handler branch in `routes/chat.py`, (8) new task key in `llm_routing.yml` if the handler calls an LLM
 - **Classifier**: add new rules to `_RULES` list in `rules.py` as `(flag, rule_name, pattern)` tuples
 - **LLM model config**: update `llm_routing.yml`, never hardcode model names in code
 - **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `markCompleted`, `refresh`
@@ -124,4 +133,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Proactive agent**: LangGraph `StateGraph` in `proactive.py`; nodes are pure, worker jobs persist results via `NotificationManager`; routing by `task_type` (gmail_digest, morning_digest, staleness_only)
 - **Worker quiet hours**: `respect_quiet_hours(fn)` decorator checks `settings.quiet_hours_start/end` before running; jobs read cron from `schedules.yml`
 - **Digests**: `DigestManager(session)` follows same pattern as NotificationManager; API routes follow same `DB = Annotated[...]` pattern; frontend DigestPanel polls every 60s via `useDigests` hook
-- **GmailReader**: `GmailReader(token_path)` wraps sync Google API in `asyncio.to_thread()`; requires OAuth token from `scripts/setup_gmail.py`
+- **GmailReader / CalendarReader**: both wrap sync Google API in `asyncio.to_thread()`; token loaded from path at construction; expired tokens auto-refreshed and re-saved. CalendarReader reuses same `credentials.json` OAuth app but writes to `calendar_token.json`.
+- **Google API tool tests**: mock both `Credentials.from_authorized_user_file` and `googleapiclient.discovery.build` at the tool's module path (not google's); create a fake token file via `tmp_path`; set `mock_creds.expired = False`. See `test_gmail_reader.py` as canonical example.
+- **routes/chat.py elif variable names**: don't reuse the same variable name (e.g. `reader`) across `elif` branches — mypy infers type from first assignment and flags later branches as incompatible. Use distinct names (`gmail_reader`, `cal_reader`, etc.)
+- **ruff RUF012**: class-level mutable defaults (list, dict) require `ClassVar` annotation — `SCOPES: ClassVar[list[str]] = [...]`

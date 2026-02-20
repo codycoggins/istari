@@ -39,6 +39,8 @@ async def completion(
         call_kwargs["api_key"] = settings.anthropic_api_key
     elif model.startswith("gemini/"):
         call_kwargs["api_key"] = settings.google_api_key
+    elif model.startswith("openai/"):
+        call_kwargs["api_key"] = settings.openai_api_key
 
     call_kwargs.update(kwargs)
     return await litellm.acompletion(**call_kwargs)  # type: ignore[arg-type]

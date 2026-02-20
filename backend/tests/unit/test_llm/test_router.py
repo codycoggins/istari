@@ -47,7 +47,7 @@ class TestCompletion:
         await completion("summarization", messages)
 
         call_kwargs = mock_acompletion.call_args
-        assert call_kwargs.kwargs["model"] == "ollama/llama3"
+        assert call_kwargs.kwargs["model"].startswith("ollama/")
         assert "api_base" in call_kwargs.kwargs
         assert call_kwargs.kwargs["num_ctx"] == 8192
 
@@ -67,13 +67,14 @@ class TestCompletion:
             assert "api_base" in call_kwargs.kwargs
 
     async def test_default_model_for_unknown_task(self, mock_acompletion):
+        from istari.llm.config import get_model_config
         from istari.llm.router import completion
 
         messages = [{"role": "user", "content": "Hello"}]
         await completion("unknown_task_type", messages)
 
         call_kwargs = mock_acompletion.call_args
-        assert call_kwargs.kwargs["model"] == "ollama/llama3"
+        assert call_kwargs.kwargs["model"] == get_model_config("unknown_task_type")["model"]
 
     async def test_temperature_passed(self, mock_acompletion):
         from istari.llm.router import completion

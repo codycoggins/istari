@@ -3,45 +3,49 @@
 
 defaults:
   # Fallback model when no task-specific config matches
-  model: ollama/llama3
+  model: ollama/llama3.1:8b-instruct-q8_0
   temperature: 0.7
 
 tasks:
   chat_response:
-    model: ollama/llama3
+    model: openai/gpt-4o
     temperature: 0.7
-    description: User-facing chat responses — local for dev (swap to anthropic/claude for prod)
 
   summarization:
-    model: ollama/llama3
+    model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
     description: Email/content summarization — local, fast
 
   classification:
-    model: ollama/llama3
+    model: ollama/mistral:7b-instruct-q8_0
     temperature: 0.0
-    description: Content sensitivity classification — always local
+    description: Content sensitivity classification — always local, never cloud; Mistral excels at structured JSON output
 
   embedding:
     model: ollama/nomic-embed-text
     description: Vector embeddings — always local
 
   todo_enrichment:
-    model: ollama/llama3
+    model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
-    description: TODO metadata inference — local for dev (swap to gemini for prod)
+    description: TODO metadata inference — local
 
   prioritization:
-    model: ollama/llama3
+    model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
-    description: Task prioritization — local for dev (swap to anthropic/claude for prod)
+    description: Task prioritization — local
 
   digest_summary:
-    model: ollama/llama3
+    model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
     description: Digest summarization for proactive agent — emails + stale TODOs
 
   gmail_summary:
-    model: ollama/llama3
+    model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
     description: On-demand Gmail scan summary for chat responses
+
+  calendar_summary:
+    model: ollama/llama3.1:8b-instruct-q8_0
+    temperature: 0.3
+    description: On-demand Calendar scan summary for chat responses

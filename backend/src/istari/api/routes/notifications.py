@@ -48,6 +48,7 @@ async def mark_read(notification_id: int, db: DB):
     if notification is None:
         raise HTTPException(status_code=404, detail="Notification not found")
     await db.commit()
+    await db.refresh(notification)
     return NotificationResponse.model_validate(notification)
 
 
@@ -58,6 +59,7 @@ async def complete_notification(notification_id: int, db: DB):
     if notification is None:
         raise HTTPException(status_code=404, detail="Notification not found")
     await db.commit()
+    await db.refresh(notification)
     return NotificationResponse.model_validate(notification)
 
 

@@ -28,4 +28,5 @@ async def create_memory(body: MemoryCreate, db: DB):
     store = MemoryStore(db)
     memory = await store.store(content=body.content)
     await db.commit()
+    await db.refresh(memory)
     return MemoryResponse.model_validate(memory)

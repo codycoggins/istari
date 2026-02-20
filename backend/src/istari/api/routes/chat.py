@@ -131,6 +131,57 @@ async def chat_ws(ws: WebSocket):
                     except Exception:
                         response_text = "I had trouble checking your email. Try again in a moment."
 
+                elif intent == Intent.CALENDAR_SCAN.value:
+                    query = extracted or ""
+                    try:
+                        from istari.tools.calendar.reader import CalendarEvent, CalendarReader
+
+                        cal_reader = CalendarReader(settings.calendar_token_path)
+                        max_r = settings.calendar_max_results
+                        if query:
+                            events = await cal_reader.search(query, max_results=max_r)
+                        else:
+                            events = await cal_reader.list_upcoming(days=7, max_results=max_r)
+
+                        if not events:
+                            if not query:
+                                response_text = "No upcoming events in the next 7 days."
+                            else:
+                                response_text = f'No events matching "{query}".'
+                        else:
+                            from istari.llm.router import completion
+
+                            def _fmt_event(e: CalendarEvent) -> str:
+                                start = e.start.isoformat() if e.start else "?"
+                                loc = f" @ {e.location}" if e.location else ""
+                                return f"- {e.summary} ({start}{loc})"
+
+                            event_lines = [_fmt_event(e) for e in events]
+                            summary_prompt = "\n".join(event_lines)
+                            llm_result = await completion(
+                                "calendar_summary",
+                                [
+                                    {
+                                        "role": "system",
+                                        "content": (
+                                            "Summarize these calendar events concisely. "
+                                            "Note any that require preparation or action."
+                                        ),
+                                    },
+                                    {"role": "user", "content": summary_prompt},
+                                ],
+                            )
+                            response_text = llm_result.choices[0].message.content or summary_prompt
+                    except FileNotFoundError:
+                        response_text = (
+                            "Calendar isn't set up yet. Run `python scripts/setup_calendar.py` "
+                            "to connect your Google Calendar."
+                        )
+                    except Exception:
+                        response_text = (
+                            "I had trouble checking your calendar. Try again in a moment."
+                        )
+
                 elif intent == Intent.MEMORY_WRITE.value and extracted:
                     store = MemoryStore(session)
                     await store.store(content=extracted, source="chat")
@@ -158,7 +209,14 @@ async def chat_ws(ws: WebSocket):
                         llm_messages = [
                             {
                                 "role": "system",
-                                "content": "You are Istari, a helpful AI assistant.",
+                                "content": (
+                                    "You are Istari, a personal AI assistant. "
+                                    "You manage the user's TODOs, memories, email, and calendar. "
+                                    "When a user asks to be reminded of something or mentions "
+                                    "a task, tell them you've added it to their list — "
+                                    "never direct them to use another app or device. "
+                                    "For general questions, be concise and helpful."
+                                ),
                             },
                             *history,
                         ]

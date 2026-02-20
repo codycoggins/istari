@@ -32,6 +32,7 @@ async def create_todo(body: TodoCreate, db: DB):
     mgr = TodoManager(db)
     todo = await mgr.create(title=body.title)
     await db.commit()
+    await db.refresh(todo)
     return TodoResponse.model_validate(todo)
 
 
@@ -61,6 +62,7 @@ async def update_todo(todo_id: int, body: TodoUpdate, db: DB):
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
     await db.commit()
+    await db.refresh(todo)
     return TodoResponse.model_validate(todo)
 
 
@@ -71,4 +73,5 @@ async def complete_todo(todo_id: int, db: DB):
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
     await db.commit()
+    await db.refresh(todo)
     return TodoResponse.model_validate(todo)

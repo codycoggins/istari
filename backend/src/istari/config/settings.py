@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # LLM keys
     anthropic_api_key: str = ""
     google_api_key: str = ""
+    openai_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
 
     # Gmail OAuth
@@ -40,6 +41,8 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     gmail_token_path: str = "gmail_token.json"
     gmail_max_results: int = 20
+    calendar_token_path: str = "calendar_token.json"
+    calendar_max_results: int = 10
 
     # Worker
     quiet_hours_start: int = 21

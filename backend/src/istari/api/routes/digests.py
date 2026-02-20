@@ -30,4 +30,5 @@ async def review_digest(digest_id: int, db: DB):
     if digest is None:
         raise HTTPException(status_code=404, detail="Digest not found")
     await db.commit()
+    await db.refresh(digest)
     return DigestResponse.model_validate(digest)

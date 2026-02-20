@@ -15,7 +15,8 @@ from langgraph.graph import END, StateGraph
 logger = logging.getLogger(__name__)
 
 _VALID_INTENTS = frozenset({
-    "todo_capture", "todo_update", "memory_write", "prioritize", "gmail_scan", "chat",
+    "todo_capture", "todo_update", "memory_write", "prioritize",
+    "gmail_scan", "calendar_scan", "chat",
 })
 
 _CLASSIFY_SYSTEM_PROMPT = """\
@@ -25,8 +26,12 @@ return a JSON object with exactly two keys:
 
 Intents:
 - "todo_capture": User wants to add a task, reminder, or TODO. \
+Triggered by phrases like "remind me to", "remember to", "don't forget to", \
+"I need to", "add a TODO", "TODO:", "make a note to", or any request to track \
+or remember a future action. \
 Set extracted_content to a plain string: the task rephrased as a concise action \
-starting with a verb (e.g., "Pay the condo fee", "Buy groceries").
+starting with a verb (e.g., "Pay the condo fee", "Buy groceries", \
+"Make a dentist appointment").
 - "todo_update": User wants to change the status of an existing TODO \
 (e.g., "mark task 3 as blocked", "start working on groceries", "defer the report"). \
 Return extracted_content as JSON: {"identifier": "<id or title>", "target_status": "<status>"}. \
@@ -36,6 +41,9 @@ Valid statuses: open, in_progress, blocked, complete, deferred.
 Set extracted_content to "".
 - "gmail_scan": User wants to check email, scan inbox, or asks about unread emails. \
 Set extracted_content to an optional search query or "".
+- "calendar_scan": User wants to check their calendar, see upcoming events, or asks about \
+their schedule. Set extracted_content to an optional search query (e.g., "standup", \
+"meeting with Alex") or "" to show all upcoming events.
 - "chat": General conversation, questions, or anything else. \
 Set extracted_content to "".
 
@@ -48,6 +56,7 @@ class Intent(StrEnum):
     MEMORY_WRITE = "memory_write"
     PRIORITIZE = "prioritize"
     GMAIL_SCAN = "gmail_scan"
+    CALENDAR_SCAN = "calendar_scan"
     CHAT = "chat"
 
 
@@ -59,6 +68,23 @@ class ChatState(TypedDict, total=False):
     target_status: str
     response: str
     is_sensitive: bool
+
+
+def _extract_json(text: str) -> str:
+    """Extract a JSON object from LLM output, stripping markdown fences or preamble."""
+    text = text.strip()
+    # Strip ```json ... ``` or ``` ... ``` fences
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    # Find the first { ... } block in case the model added preamble text
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+    return text
 
 
 # --- Graph nodes ---
@@ -85,6 +111,8 @@ async def classify_node(state: ChatState) -> ChatState:
             sensitive=classification.is_sensitive,
         )
         content = llm_result.choices[0].message.content or ""
+        logger.debug("Classification raw response: %r", content)
+        content = _extract_json(content)
         parsed = json.loads(content)
         raw_intent = parsed.get("intent", "chat")
         raw_extracted = parsed.get("extracted_content", "")
@@ -148,6 +176,12 @@ def gmail_scan_node(state: ChatState) -> ChatState:
     return {**state, "response": f"__GMAIL_SCAN__|{query}"}
 
 
+def calendar_scan_node(state: ChatState) -> ChatState:
+    """Signal a Calendar scan request (handler does the actual API call)."""
+    query = state.get("extracted_content", "")
+    return {**state, "response": f"__CALENDAR_SCAN__|{query}"}
+
+
 def chat_respond_node(state: ChatState) -> ChatState:
     """Signal that an LLM call is needed (handler calls the LLM)."""
     return {**state, "response": "__LLM_CALL__"}
@@ -162,6 +196,8 @@ def _route_intent(state: ChatState) -> str:
         return "todo_update"
     if intent == Intent.GMAIL_SCAN.value:
         return "gmail_scan"
+    if intent == Intent.CALENDAR_SCAN.value:
+        return "calendar_scan"
     if intent == Intent.MEMORY_WRITE.value:
         return "memory_write"
     if intent == Intent.PRIORITIZE.value:
@@ -180,6 +216,7 @@ def build_chat_graph() -> StateGraph:
     graph.add_node("todo_capture", todo_capture_node)
     graph.add_node("todo_update", todo_update_node)
     graph.add_node("gmail_scan", gmail_scan_node)
+    graph.add_node("calendar_scan", calendar_scan_node)
     graph.add_node("memory_write", memory_write_node)
     graph.add_node("prioritize", prioritize_node)
     graph.add_node("chat_respond", chat_respond_node)
@@ -193,6 +230,7 @@ def build_chat_graph() -> StateGraph:
             "todo_capture": "todo_capture",
             "todo_update": "todo_update",
             "gmail_scan": "gmail_scan",
+            "calendar_scan": "calendar_scan",
             "memory_write": "memory_write",
             "prioritize": "prioritize",
             "chat_respond": "chat_respond",
@@ -202,6 +240,7 @@ def build_chat_graph() -> StateGraph:
     graph.add_edge("todo_capture", END)
     graph.add_edge("todo_update", END)
     graph.add_edge("gmail_scan", END)
+    graph.add_edge("calendar_scan", END)
     graph.add_edge("memory_write", END)
     graph.add_edge("prioritize", END)
     graph.add_edge("chat_respond", END)
