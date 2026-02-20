@@ -4,8 +4,8 @@ See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
-- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE** — 8 frontend tests passing
-- **Phase 3 (partial): `calendar_reader` tool COMPLETE** — 117 backend tests (excl. pre-existing test_chat.py import error), ruff clean
+- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
+- **Phase 3 (partial): `calendar_reader` tool COMPLETE** — 117 backend tests, 14 frontend tests, ruff clean
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **Known mypy issues (pre-existing, not introduced by us):** `google-api-python-client` and `PyYAML` have no type stubs; `routes/chat.py` and `chat.py` have pre-existing strict-mode violations. Run `mypy` on specific new files only to check your own work — compare against `gmail/reader.py` as the baseline for acceptable Google API errors.
@@ -137,3 +137,8 @@ See `istari-project-outline.md` for the full project specification.
 - **Google API tool tests**: mock both `Credentials.from_authorized_user_file` and `googleapiclient.discovery.build` at the tool's module path (not google's); create a fake token file via `tmp_path`; set `mock_creds.expired = False`. See `test_gmail_reader.py` as canonical example.
 - **routes/chat.py elif variable names**: don't reuse the same variable name (e.g. `reader`) across `elif` branches — mypy infers type from first assignment and flags later branches as incompatible. Use distinct names (`gmail_reader`, `cal_reader`, etc.)
 - **ruff RUF012**: class-level mutable defaults (list, dict) require `ClassVar` annotation — `SCOPES: ClassVar[list[str]] = [...]`
+- **SQLAlchemy async + Pydantic**: always `await db.refresh(obj)` after `await db.commit()` before calling `model_validate(obj)` — commit expires all ORM attributes; accessing them outside the async context causes `MissingGreenlet` crash
+- **LLM classification model**: use `mistral:7b-instruct-q8_0` for the `classification` task — Mistral reliably outputs structured JSON at temperature 0.0; llama3.1 can return empty strings at low temperature causing silent fallback to `chat` intent
+- **Robust LLM JSON parsing**: `_extract_json()` in `chat.py` strips markdown fences (` ```json `) and finds the first `{...}` block — guards against models that wrap JSON in preamble text; always log raw response at DEBUG before parsing
+- **Frontend prop-wiring pattern**: when a parent needs to call a function owned by a child, add `onRegisterSend?: (fn) => void` prop; child calls it in `useEffect([..., fn])`. Test all three layers: child calls the prop, the prop receives the real function, and an App-level test confirms end-to-end button → sendMessage
+- **Frontend wiring tests**: mock `useChat` with `vi.mock("../../src/hooks/useChat", () => ({ useChat: () => ({ sendMessage: mockFn, ... }) }))` — see `ChatPanel.test.tsx` as canonical example
