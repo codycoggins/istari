@@ -40,6 +40,7 @@ See `istari-project-outline.md` for the full project specification.
   - Pattern learning (overnight job)
 
 ## Development Commands
+- **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
 - `cd backend && pip install -e ".[dev]"` — install backend package in editable mode with dev deps
 - `cd backend && uvicorn istari.api.main:app --reload` — run API server with hot reload
 - `cd backend && python -m istari.worker.main` — run worker
