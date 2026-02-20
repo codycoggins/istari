@@ -5,22 +5,22 @@ See `istari-project-outline.md` for the full project specification.
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3 (partial): `calendar_reader` tool COMPLETE** — 117 backend tests, 14 frontend tests, ruff clean
+- **Phase 3: ReAct tool-calling agent COMPLETE** — 149 backend tests, 14 frontend tests, ruff clean
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **Known mypy issues (pre-existing, not introduced by us):** `google-api-python-client` and `PyYAML` have no type stubs; `routes/chat.py` and `chat.py` have pre-existing strict-mode violations. Run `mypy` on specific new files only to check your own work — compare against `gmail/reader.py` as the baseline for acceptable Google API errors.
 - **What's working end-to-end:**
-  - LangGraph chat agent with LLM-based intent classification
-  - WebSocket chat at `/api/chat/ws` — graph nodes are pure, DB writes in handler
+  - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
+  - WebSocket chat at `/api/chat/ws`
   - LiteLLM routing with sensitive content → local Ollama model
   - Rule-based content classifier (PII, financial, email, file content)
   - TODO CRUD with 5 statuses (open, in_progress, blocked, complete, deferred) + priority-based ordering (API + tool)
   - Explicit memory store with ILIKE search (API + tool)
   - Settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
-  - **`update_todo` chat intent** — LLM classifies "mark task X as blocked" → finds TODO by ID or title ILIKE → updates status via chat
-  - **`gmail_scan` chat intent** — "check my email" triggers Gmail scan, LLM summarizes results
-  - **`calendar_scan` chat intent** — "check my calendar" triggers Google Calendar scan, LLM summarizes results
+  - **TODO tools** — `create_todos` (bulk, single call), `list_todos` (filter: open/all/complete), `update_todo_status` (by ID or ILIKE pattern, bulk, synonym normalization), `get_priorities`
+  - **Memory tools** — `remember`, `search_memory`
+  - **Gmail/Calendar tools** — `check_email`, `check_calendar` (same capability as before, now as agent tools)
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
   - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
   - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
@@ -31,13 +31,13 @@ See `istari-project-outline.md` for the full project specification.
 - **Still needed before running:** `alembic revision --autogenerate -m "add digests table"` + `alembic upgrade head` (digests table not yet migrated)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
-- **Next up:** (see `istari-project-outline.md` for future phases)
-  - `filesystem_search` MCP tool (Phase 3)
-  - Context injection at task start — searches Gmail, filesystem, calendar
+- **Next up:**
+  - `filesystem_read` tool — `read_file(path)` + `search_files(query)` enabling "read meeting notes and create TODOs"
+  - MCP server integration via `langchain-mcp-adapters` — register any MCP server tools into the agent dynamically
+  - `user_name` in .env — already in settings, just needs to be set for "assigned to Cody" queries
   - pgvector semantic search over ingested content
-  - Focus mode enforcement in proactive agent (skip non-critical during focus)
   - Persistent chat history
-  - Pattern learning (overnight job)
+  - Focus mode enforcement, pattern learning
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
@@ -74,6 +74,17 @@ See `istari-project-outline.md` for the full project specification.
 - **Frontend**: standalone Vite + React 19 + TypeScript, communicates via API only, own Dockerfile (multi-stage: node build → nginx serve)
 - **Enums use `enum.StrEnum`** (Python 3.12+); SQLAlchemy `Enum()` columns **must** use `values_callable=lambda e: [m.value for m in e]` — without it, SQLAlchemy sends `.name` (uppercase) instead of `.value` (lowercase), causing PostgreSQL `InvalidTextRepresentationError`. Guarded by `test_enum_columns_use_values_not_names`.
 
+### ReAct Tool-Calling Agent (replacing Phase 1 intent classification)
+- **Architecture**: LangGraph ReAct loop — `agent_node` (LLM with tools) ↔ `tools_node` (executes calls) → repeat until final response
+- **Why**: linear classify→act cannot do multi-step reasoning (e.g., read file → extract items → create todos); tool calling handles bulk ops, synonyms, pattern matching naturally
+- **Tool registration**: `@tool`-decorated async functions in `agents/tools/` — each group (todo, memory, gmail, calendar, filesystem) in its own module; agent built from a flat list of all tools
+- **DB injection**: tools need `AsyncSession`; session is provided via closure at WebSocket connect time (wrap tool functions with session before passing to agent)
+- **MCP path**: `langchain-mcp-adapters` converts MCP server tools → LangChain tools; add to agent registry without code changes
+- **Model requirement**: tool calling needs a capable model — `gpt-4o` for primary agent; local models for summarization/classification subtasks only
+- **Status synonyms**: normalize in tool layer before DB write — "done/finished/completed" → complete, "started/working on" → in_progress, "stuck/waiting" → blocked, "postpone/later/skip" → deferred
+- **Old `chat.py` agent**: replaced entirely; `proactive.py` (worker) is unaffected and stays as-is
+- **What stays**: WebSocket transport, all Manager classes (TodoManager, GmailReader, etc.), frontend, LiteLLM routing
+
 ### Phase 1 Design Decisions
 - **Vector dimension 768** (nomic-embed-text via Ollama), not 1536 (OpenAI)
 - **LLM-based intent classification** — `classify_node` coerces `extracted_content` to string (LLMs may return JSON objects instead of plain strings); intent and extracted are set atomically to avoid partial-assignment on parse errors
@@ -100,7 +111,7 @@ See `istari-project-outline.md` for the full project specification.
   - `gmail/reader.py` — GmailReader (list_unread, search, get_thread) with OAuth2 token
   - `calendar/reader.py` — CalendarReader (list_upcoming, search, get_event) with OAuth2 token
   - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
-- Agents: `backend/src/istari/agents/` — chat.py (LangGraph chat graph, 6 intents), proactive.py (LangGraph proactive graph), memory.py (stub)
+- Agents: `backend/src/istari/agents/` — chat.py (ReAct agent loop + `build_tools`/`run_agent`), tools/ (todo.py, memory.py, gmail.py, calendar.py, base.py), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, digests.py, memory.py, settings.py
 - API deps: `backend/src/istari/api/deps.py`
@@ -109,7 +120,8 @@ See `istari-project-outline.md` for the full project specification.
 - Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`, `useDigests.ts`
 - Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `digests.ts`, `chat.ts`
 - Tests: `backend/tests/` (conftest.py with SQLite fixture, unit/, integration/, fixtures/)
-  - `unit/test_agents/test_chat.py` — intent detection + graph flow (35 tests, pre-existing import error)
+  - `unit/test_agents/test_chat.py` — old intent graph tests (35 tests, pre-existing import error — superceded by new tests)
+  - `unit/test_agents/test_agent_tools.py` — ReAct tool tests: normalize_status, create/update/list/priorities, memory, schema validation, run_agent mocked loop (32 tests)
   - `unit/test_agents/test_proactive.py` — proactive agent node tests (10 tests)
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
@@ -123,7 +135,13 @@ See `istari-project-outline.md` for the full project specification.
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
 - **Tools take `session` in constructor**: `TodoManager(session)`, `MemoryStore(session)` — not global
 - **Tests**: pure logic tests need no DB fixture; CRUD tests use `db_session` fixture from conftest
-- **Chat graph**: adding a new intent requires 8 steps — (1) `_VALID_INTENTS` frozenset, (2) `_CLASSIFY_SYSTEM_PROMPT` bullet, (3) `Intent` enum value, (4) new node function, (5) `_route_intent()` branch, (6) `build_chat_graph()`: `graph.add_node`, entry in the conditional edges dict, AND `graph.add_edge(node, END)`, (7) handler branch in `routes/chat.py`, (8) new task key in `llm_routing.yml` if the handler calls an LLM
+- **Adding a new agent tool**: create an `async def my_tool(...)` closure inside a `make_*_tools(session, context)` factory function in `agents/tools/`; add an `AgentTool(name, description, parameters, fn)` to the returned list; add the factory to `build_tools()` in `agents/chat.py`. No other changes needed.
+- **AgentTool parameters**: use JSON Schema "parameters" object format (`{"type": "object", "properties": {...}, "required": [...]}`) — same as OpenAI function calling. Keep descriptions concise (under 100 chars) to avoid E501.
+- **Status synonym normalization**: `normalize_status()` in `agents/tools/base.py` maps "done/finished" → complete, "started/working on" → in_progress, "stuck/waiting" → blocked, "postpone/later" → deferred; called in `update_todo_status` before DB write.
+- **Bulk ILIKE update pattern**: `update_todo_status(query, status)` fetches ALL todos matching `ILIKE %query%` and updates each; numeric ID takes precedence over pattern match.
+- **DB session in tools**: tools receive `session` via closure (not dependency injection) — `make_*_tools(session, context)` factory binds the session; `context` (AgentContext dataclass) tracks side effects (todo_created, todo_updated, memory_created) for frontend refresh signals.
+- **run_agent**: in `agents/chat.py`; calls LiteLLM `completion("chat_response", messages, tools=schemas, tool_choice="auto")`; loops until no tool_calls in response; max 8 turns; returns final content string.
+- **user_name setting**: `USER_NAME=` in `.env` → injected into agent system prompt as "The user's name is {name}" — enables queries like "find action items assigned to Cody"
 - **Classifier**: add new rules to `_RULES` list in `rules.py` as `(flag, rule_name, pattern)` tuples
 - **LLM model config**: update `llm_routing.yml`, never hardcode model names in code
 - **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `markCompleted`, `refresh`

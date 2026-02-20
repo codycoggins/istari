@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     calendar_token_path: str = "calendar_token.json"
     calendar_max_results: int = 10
 
+    # User identity (injected into agent system prompt)
+    user_name: str = ""
+
     # Worker
     quiet_hours_start: int = 21
     quiet_hours_end: int = 7

@@ -1,251 +1,148 @@
-"""Chat agent — LangGraph graph for interactive user conversations.
+"""Chat agent — ReAct tool-calling loop for interactive user conversations.
 
-Intent detection uses LLM classification for robust intent matching
-and TODO normalization. Graph nodes are pure — DB writes happen in
-the WebSocket handler.
+Architecture: the LLM receives a set of tools and reasons across multiple turns:
+  1. User message arrives
+  2. LLM decides which tool(s) to call (or responds directly)
+  3. Tools execute and return results
+  4. LLM sees results, may call more tools or produce a final response
+  5. Loop continues until a final text response or max_turns is reached
+
+Tools are bound to the current DB session at WebSocket connect time via closures,
+so the agent has no direct DB access — all persistence goes through tool functions.
 """
 
 import json
 import logging
-from enum import StrEnum
-from typing import TypedDict
+from typing import TYPE_CHECKING
 
-from langgraph.graph import END, StateGraph
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+from istari.agents.tools.base import AgentContext, AgentTool
 
 logger = logging.getLogger(__name__)
 
-_VALID_INTENTS = frozenset({
-    "todo_capture", "todo_update", "memory_write", "prioritize",
-    "gmail_scan", "calendar_scan", "chat",
-})
+_MAX_TURNS = 8
 
-_CLASSIFY_SYSTEM_PROMPT = """\
-You are an intent classifier for a personal assistant. Given a user message, \
-return a JSON object with exactly two keys:
-{"intent": "<intent>", "extracted_content": "<content>"}
+_SYSTEM_PROMPT_TEMPLATE = """\
+You are Istari, a personal AI assistant.{name_line}
+You help the user manage their TODOs, memories, email, and calendar.
 
-Intents:
-- "todo_capture": User wants to add a task, reminder, or TODO. \
-Triggered by phrases like "remind me to", "remember to", "don't forget to", \
-"I need to", "add a TODO", "TODO:", "make a note to", or any request to track \
-or remember a future action. \
-Set extracted_content to a plain string: the task rephrased as a concise action \
-starting with a verb (e.g., "Pay the condo fee", "Buy groceries", \
-"Make a dentist appointment").
-- "todo_update": User wants to change the status of an existing TODO \
-(e.g., "mark task 3 as blocked", "start working on groceries", "defer the report"). \
-Return extracted_content as JSON: {"identifier": "<id or title>", "target_status": "<status>"}. \
-Valid statuses: open, in_progress, blocked, complete, deferred.
-- "memory_write": User wants you to remember a fact or preference. Extract the fact.
-- "prioritize": User is asking what to work on or to see their priorities. \
-Set extracted_content to "".
-- "gmail_scan": User wants to check email, scan inbox, or asks about unread emails. \
-Set extracted_content to an optional search query or "".
-- "calendar_scan": User wants to check their calendar, see upcoming events, or asks about \
-their schedule. Set extracted_content to an optional search query (e.g., "standup", \
-"meeting with Alex") or "" to show all upcoming events.
-- "chat": General conversation, questions, or anything else. \
-Set extracted_content to "".
+You have tools available. Use them whenever the user's request involves:
+- Viewing, adding, or updating TODOs or tasks
+- Remembering facts or preferences
+- Checking email or calendar
 
-Return ONLY valid JSON, no other text."""
+Guidelines:
+- For any request to add a reminder, task, or action item: use create_todos.
+- For bulk operations (e.g. "add five todos"): call create_todos with all titles in one call.
+- For status updates (e.g. "mark as done"): use update_todo_status. "done" and "finished" \
+map to "complete".
+- When the user asks what to work on: use get_priorities.
+- After using a tool, summarize the result conversationally — do not just repeat the raw output.
+- Be concise and action-oriented.\
+"""
 
 
-class Intent(StrEnum):
-    TODO_CAPTURE = "todo_capture"
-    TODO_UPDATE = "todo_update"
-    MEMORY_WRITE = "memory_write"
-    PRIORITIZE = "prioritize"
-    GMAIL_SCAN = "gmail_scan"
-    CALENDAR_SCAN = "calendar_scan"
-    CHAT = "chat"
+def _build_system_prompt(user_name: str = "") -> str:
+    name_line = f" The user's name is {user_name}." if user_name else ""
+    return _SYSTEM_PROMPT_TEMPLATE.format(name_line=name_line)
 
 
-class ChatState(TypedDict, total=False):
-    user_message: str
-    intent: str
-    extracted_content: str
-    todo_identifier: str
-    target_status: str
-    response: str
-    is_sensitive: bool
+def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentTool]:
+    """Assemble all agent tools bound to this session."""
+    from istari.agents.tools.calendar import make_calendar_tools
+    from istari.agents.tools.gmail import make_gmail_tools
+    from istari.agents.tools.memory import make_memory_tools
+    from istari.agents.tools.todo import make_todo_tools
+
+    return [
+        *make_todo_tools(session, context),
+        *make_memory_tools(session, context),
+        *make_gmail_tools(),
+        *make_calendar_tools(),
+    ]
 
 
-def _extract_json(text: str) -> str:
-    """Extract a JSON object from LLM output, stripping markdown fences or preamble."""
-    text = text.strip()
-    # Strip ```json ... ``` or ``` ... ``` fences
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    # Find the first { ... } block in case the model added preamble text
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return text[start : end + 1]
-    return text
-
-
-# --- Graph nodes ---
-
-
-async def classify_node(state: ChatState) -> ChatState:
-    """Classify the user message via LLM and detect intent."""
+async def run_agent(
+    user_message: str,
+    history: list[dict],
+    tools: list[AgentTool],
+    *,
+    user_name: str = "",
+) -> str:
+    """Run the ReAct agent loop and return the final response text."""
     from istari.llm.router import completion
-    from istari.tools.classifier.rules import classify
 
-    msg = state["user_message"]
-    classification = classify(msg)
+    tool_map = {t.name: t for t in tools}
+    tool_schemas = [t.to_openai_schema() for t in tools]
 
-    intent = Intent.CHAT.value
-    extracted = ""
+    messages: list[dict] = [
+        {"role": "system", "content": _build_system_prompt(user_name)},
+        *history,
+        {"role": "user", "content": user_message},
+    ]
 
-    try:
-        llm_result = await completion(
-            "classification",
-            [
-                {"role": "system", "content": _CLASSIFY_SYSTEM_PROMPT},
-                {"role": "user", "content": msg},
-            ],
-            sensitive=classification.is_sensitive,
-        )
-        content = llm_result.choices[0].message.content or ""
-        logger.debug("Classification raw response: %r", content)
-        content = _extract_json(content)
-        parsed = json.loads(content)
-        raw_intent = parsed.get("intent", "chat")
-        raw_extracted = parsed.get("extracted_content", "")
-        if not isinstance(raw_extracted, str):
-            raw_extracted = json.dumps(raw_extracted) if raw_extracted is not None else ""
-        if raw_intent in _VALID_INTENTS:
-            intent = raw_intent
-            extracted = raw_extracted.strip()
-        else:
-            logger.warning("LLM returned unknown intent %r, falling back to chat", raw_intent)
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("Failed to parse LLM classification response: %s", exc)
-    except Exception:
-        logger.exception("LLM classification call failed")
+    for turn in range(_MAX_TURNS):
+        logger.debug("Agent turn %d, %d messages in context", turn + 1, len(messages))
 
-    updates: ChatState = {
-        **state,
-        "intent": intent,
-        "extracted_content": extracted,
-        "is_sensitive": classification.is_sensitive,
-    }
-
-    if intent == Intent.TODO_UPDATE.value:
         try:
-            payload = json.loads(extracted) if extracted else {}
-            updates["todo_identifier"] = str(payload.get("identifier", ""))
-            updates["target_status"] = str(payload.get("target_status", ""))
-        except (json.JSONDecodeError, TypeError):
-            logger.warning("Failed to parse todo_update extracted_content, falling back to chat")
-            updates["intent"] = Intent.CHAT.value
+            result = await completion(
+                "chat_response",
+                messages,
+                tools=tool_schemas,
+                tool_choice="auto",
+            )
+        except Exception:
+            logger.exception("LLM call failed on turn %d", turn + 1)
+            return "I'm having trouble connecting right now. Please try again in a moment."
 
-    return updates
+        choice = result.choices[0]
+        msg = choice.message
 
+        # No tool calls — this is the final response
+        if not getattr(msg, "tool_calls", None):
+            return msg.content or ""
 
-def todo_capture_node(state: ChatState) -> ChatState:
-    """Produce a TODO capture acknowledgment (no DB write — handler does that)."""
-    title = state.get("extracted_content", "")
-    return {**state, "response": f'Got it! Added TODO: "{title}"'}
+        # Add assistant message with tool calls to context
+        messages.append({
+            "role": "assistant",
+            "content": msg.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in msg.tool_calls
+            ],
+        })
 
+        # Execute each tool call and append results
+        for tc in msg.tool_calls:
+            tool_name = tc.function.name
+            tool = tool_map.get(tool_name)
+            logger.debug("Executing tool: %s(%s)", tool_name, tc.function.arguments)
 
-def memory_write_node(state: ChatState) -> ChatState:
-    """Produce a memory write acknowledgment (no DB write — handler does that)."""
-    return {**state, "response": "Noted. I'll remember that."}
+            if tool is None:
+                tool_result = f"Unknown tool: {tool_name}"
+            else:
+                try:
+                    args = json.loads(tc.function.arguments)
+                    tool_result = await tool.fn(**args)
+                except Exception as exc:
+                    logger.exception("Tool %s raised an error", tool_name)
+                    tool_result = f"Tool error: {exc}"
 
+            logger.debug("Tool %s result: %r", tool_name, tool_result[:200])
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": tool_result,
+            })
 
-def prioritize_node(state: ChatState) -> ChatState:
-    """Signal that we need prioritized TODOs (handler fetches from DB)."""
-    return {**state, "response": "__PRIORITIZE__"}
-
-
-def todo_update_node(state: ChatState) -> ChatState:
-    """Signal a TODO status update (handler does DB write)."""
-    identifier = state.get("todo_identifier", "")
-    target = state.get("target_status", "")
-    return {**state, "response": f"__TODO_UPDATE__|{identifier}|{target}"}
-
-
-def gmail_scan_node(state: ChatState) -> ChatState:
-    """Signal a Gmail scan request (handler does the actual API call)."""
-    query = state.get("extracted_content", "")
-    return {**state, "response": f"__GMAIL_SCAN__|{query}"}
-
-
-def calendar_scan_node(state: ChatState) -> ChatState:
-    """Signal a Calendar scan request (handler does the actual API call)."""
-    query = state.get("extracted_content", "")
-    return {**state, "response": f"__CALENDAR_SCAN__|{query}"}
-
-
-def chat_respond_node(state: ChatState) -> ChatState:
-    """Signal that an LLM call is needed (handler calls the LLM)."""
-    return {**state, "response": "__LLM_CALL__"}
-
-
-def _route_intent(state: ChatState) -> str:
-    """Route to the appropriate node based on detected intent."""
-    intent = state.get("intent", Intent.CHAT.value)
-    if intent == Intent.TODO_CAPTURE.value:
-        return "todo_capture"
-    if intent == Intent.TODO_UPDATE.value:
-        return "todo_update"
-    if intent == Intent.GMAIL_SCAN.value:
-        return "gmail_scan"
-    if intent == Intent.CALENDAR_SCAN.value:
-        return "calendar_scan"
-    if intent == Intent.MEMORY_WRITE.value:
-        return "memory_write"
-    if intent == Intent.PRIORITIZE.value:
-        return "prioritize"
-    return "chat_respond"
-
-
-# --- Build graph ---
-
-
-def build_chat_graph() -> StateGraph:
-    """Build and compile the chat agent graph."""
-    graph = StateGraph(ChatState)
-
-    graph.add_node("classify", classify_node)
-    graph.add_node("todo_capture", todo_capture_node)
-    graph.add_node("todo_update", todo_update_node)
-    graph.add_node("gmail_scan", gmail_scan_node)
-    graph.add_node("calendar_scan", calendar_scan_node)
-    graph.add_node("memory_write", memory_write_node)
-    graph.add_node("prioritize", prioritize_node)
-    graph.add_node("chat_respond", chat_respond_node)
-
-    graph.set_entry_point("classify")
-
-    graph.add_conditional_edges(
-        "classify",
-        _route_intent,
-        {
-            "todo_capture": "todo_capture",
-            "todo_update": "todo_update",
-            "gmail_scan": "gmail_scan",
-            "calendar_scan": "calendar_scan",
-            "memory_write": "memory_write",
-            "prioritize": "prioritize",
-            "chat_respond": "chat_respond",
-        },
-    )
-
-    graph.add_edge("todo_capture", END)
-    graph.add_edge("todo_update", END)
-    graph.add_edge("gmail_scan", END)
-    graph.add_edge("calendar_scan", END)
-    graph.add_edge("memory_write", END)
-    graph.add_edge("prioritize", END)
-    graph.add_edge("chat_respond", END)
-
-    return graph.compile()
-
-
-chat_graph = build_chat_graph()
+    logger.warning("Agent reached max turns (%d) without a final response", _MAX_TURNS)
+    return "I wasn't able to complete that after several steps. Could you rephrase or try again?"
