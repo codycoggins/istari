@@ -6,7 +6,8 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
 - **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE**
-- **Phase 4: Memory architecture COMPLETE** — 206 backend tests, 14 frontend tests, ruff clean
+- **Phase 4: Memory architecture COMPLETE** — 206 backend tests, ruff clean
+- **Phase 5: Eisenhower matrix COMPLETE** — 222 backend tests, ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
@@ -20,7 +21,8 @@ See `istari-project-outline.md` for the full project specification.
   - Explicit memory store with ILIKE search (API + tool)
   - Settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
-  - **TODO tools** — `create_todos` (bulk, single call), `list_todos` (filter: open/all/complete), `update_todo_status` (by ID or ILIKE pattern, bulk, synonym normalization), `get_priorities`
+  - **TODO tools** — `create_todos` (bulk; auto-classifies urgency/importance via LLM, asks user when uncertain), `list_todos` (filter: open/all/complete, shows quadrant labels), `update_todo_status` (by ID or ILIKE, bulk, synonym normalization), `update_todo_priority` (set urgent/important by ID or ILIKE), `get_priorities` (Q1→Q2→Q3→unclassified→Q4 sort + quadrant labels)
+  - **Eisenhower matrix** — `urgent` and `important` nullable Boolean columns on `Todo`; `get_prioritized()` uses SQLAlchemy `case()` for quadrant sort; `set_urgency_importance()` on TodoManager
   - **Memory tools** — `remember`, `search_memory`
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
   - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
@@ -35,7 +37,7 @@ See `istari-project-outline.md` for the full project specification.
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge, digest panel
-- **DB migrations:** all tables exist and are up to date (digests, conversation_messages both applied)
+- **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:**
@@ -44,6 +46,7 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
+  - Frontend: show Eisenhower quadrant badges on TODO sidebar items
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
@@ -164,6 +167,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Frontend state**: prop drilling from App.tsx; `useChat` returns `sendMessage`, `useTodos` returns `refresh`, `useNotifications` returns `markRead`, `markAllAsRead`, `markCompleted`, `refresh`
 - **Notifications**: `NotificationManager(session)` follows same pattern as TodoManager; API routes follow same `DB = Annotated[...]` pattern; frontend polls every 60s for badge updates
 - **TodoStatus enum**: 5 values — `open`, `in_progress`, `blocked`, `complete`, `deferred`; `list_open()` returns `open` + `in_progress` + `blocked` (actionable); `get_prioritized()` returns `open` + `in_progress`
+- **Eisenhower matrix**: `urgent: bool | None` and `important: bool | None` on `Todo`; quadrant sort via SQLAlchemy `case()` (Q1=1, Q2=2, Q3=3, unclassified=4, Q4=5); `set_urgency_importance(todo_id, urgent, important)` on TodoManager; `_QUADRANT_LABELS` dict in `agents/tools/todo.py` maps `(urgent, important)` tuples → label strings; `todo_classification` LLM task (local, temp=0.0)
 - **TODO status updates via chat**: `todo_update` intent; LLM extracts `{"identifier", "target_status"}` JSON; handler finds by ID then title ILIKE; `set_status()` convenience method on TodoManager
 - **Gmail scan via chat**: `gmail_scan` intent; handler creates GmailReader, calls list_unread/search, summarizes via LLM
 - **Proactive agent**: LangGraph `StateGraph` in `proactive.py`; nodes are pure, worker jobs persist results via `NotificationManager`; routing by `task_type` (gmail_digest, morning_digest, staleness_only)

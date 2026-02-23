@@ -4,7 +4,7 @@ import datetime
 import enum
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Enum, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,6 +38,8 @@ class Todo(TimestampMixin, Base):
     priority_source: Mapped[PrioritySource | None] = mapped_column(
         Enum(PrioritySource, values_callable=lambda e: [m.value for m in e]),
     )
+    urgent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    important: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     source: Mapped[str | None] = mapped_column(String(100))
     source_link: Mapped[str | None] = mapped_column(String(1000))
     due_date: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))

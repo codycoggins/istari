@@ -54,3 +54,8 @@ tasks:
     model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.0
     description: Extract memorable facts from conversation turns — local, structured JSON output
+
+  todo_classification:
+    model: ollama/llama3.1:8b-instruct-q8_0
+    temperature: 0.0
+    description: Classify TODO titles by urgency and importance (Eisenhower matrix) — local, structured JSON output

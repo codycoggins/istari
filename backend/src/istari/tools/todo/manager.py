@@ -2,7 +2,7 @@
 
 import datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from istari.models.todo import Todo, TodoStatus
@@ -79,11 +79,19 @@ class TodoManager:
         return list(result.scalars().all())
 
     async def get_prioritized(self, limit: int = 3) -> list[Todo]:
-        """Return top TODOs: explicit priority > due date > recency."""
+        """Return top TODOs: Q1 (urgent+important) → Q2 → Q3 → unclassified → Q4."""
+        quadrant = case(
+            (and_(Todo.urgent == True, Todo.important == True), 1),   # noqa: E712
+            (Todo.important == True, 2),  # important=true, urgent=false/null  # noqa: E712
+            (Todo.urgent == True, 3),     # urgent=true, important=false/null  # noqa: E712
+            (and_(Todo.urgent.is_(None), Todo.important.is_(None)), 4),
+            else_=5,  # Q4: both false
+        )
         stmt = (
             select(Todo)
             .where(Todo.status.in_((TodoStatus.OPEN, TodoStatus.IN_PROGRESS)))
             .order_by(
+                quadrant.asc(),
                 Todo.priority.asc().nulls_last(),
                 Todo.due_date.asc().nulls_last(),
                 Todo.created_at.desc(),
@@ -92,3 +100,12 @@ class TodoManager:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def set_urgency_importance(
+        self,
+        todo_id: int,
+        urgent: bool | None,
+        important: bool | None,
+    ) -> Todo | None:
+        """Set Eisenhower urgency/importance fields on a TODO."""
+        return await self.update(todo_id, urgent=urgent, important=important)
