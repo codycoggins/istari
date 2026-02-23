@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -12,9 +13,12 @@ from istari.config.settings import settings as app_settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Startup
+    logging.basicConfig(
+        level=app_settings.log_level.upper(),
+        format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
     yield
-    # Shutdown
 
 
 app = FastAPI(title="Istari", version="0.1.0", lifespan=lifespan)

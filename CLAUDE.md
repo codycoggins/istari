@@ -36,6 +36,7 @@ See `istari-project-outline.md` for the full project specification.
   - `filesystem_read` tool — `read_file(path)` + `search_files(query)` enabling "read meeting notes → create TODOs"
   - MCP server integration via `langchain-mcp-adapters`
   - pgvector semantic search, persistent chat history, focus mode enforcement
+  - Frontend logging panel or log streaming for visibility into agent tool calls
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
@@ -161,3 +162,4 @@ See `istari-project-outline.md` for the full project specification.
 - **Robust LLM JSON parsing**: `_extract_json()` in `chat.py` strips markdown fences (` ```json `) and finds the first `{...}` block — guards against models that wrap JSON in preamble text; always log raw response at DEBUG before parsing
 - **Frontend prop-wiring pattern**: when a parent needs to call a function owned by a child, add `onRegisterSend?: (fn) => void` prop; child calls it in `useEffect([..., fn])`. Test all three layers: child calls the prop, the prop receives the real function, and an App-level test confirms end-to-end button → sendMessage
 - **Frontend wiring tests**: mock `useChat` with `vi.mock("../../src/hooks/useChat", () => ({ useChat: () => ({ sendMessage: mockFn, ... }) }))` — see `ChatPanel.test.tsx` as canonical example
+- **Backend logging**: `logging.basicConfig()` in FastAPI `lifespan` wires `LOG_LEVEL` env var; agent tool calls logged at INFO with `"Tool call | %-24s | %.0fms | %d chars returned"` format; tool arguments at DEBUG only (may contain PII); agent start/finish at INFO with elapsed time; use `logger = logging.getLogger(__name__)` per module

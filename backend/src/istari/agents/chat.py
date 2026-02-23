@@ -13,6 +13,7 @@ so the agent has no direct DB access — all persistence goes through tool funct
 
 import json
 import logging
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -83,8 +84,11 @@ async def run_agent(
         {"role": "user", "content": user_message},
     ]
 
+    agent_start = time.monotonic()
+    logger.info("Agent start | user=%r | tools=%s", user_message[:80], [t.name for t in tools])
+
     for turn in range(_MAX_TURNS):
-        logger.debug("Agent turn %d, %d messages in context", turn + 1, len(messages))
+        logger.debug("Agent turn %d/%d | %d msgs", turn + 1, _MAX_TURNS, len(messages))
 
         try:
             result = await completion(
@@ -102,6 +106,8 @@ async def run_agent(
 
         # No tool calls — this is the final response
         if not getattr(msg, "tool_calls", None):
+            elapsed = time.monotonic() - agent_start
+            logger.info("Agent done | turns=%d | %.2fs", turn + 1, elapsed)
             return msg.content or ""
 
         # Add assistant message with tool calls to context
@@ -125,24 +131,35 @@ async def run_agent(
         for tc in msg.tool_calls:
             tool_name = tc.function.name
             tool = tool_map.get(tool_name)
-            logger.debug("Executing tool: %s(%s)", tool_name, tc.function.arguments)
+            logger.debug("Tool args | %s | %s", tool_name, tc.function.arguments)
 
             if tool is None:
+                logger.warning("Tool called but not found: %r", tool_name)
                 tool_result = f"Unknown tool: {tool_name}"
             else:
+                t0 = time.monotonic()
                 try:
                     args = json.loads(tc.function.arguments)
                     tool_result = await tool.fn(**args)
+                    elapsed_ms = (time.monotonic() - t0) * 1000
+                    logger.info(
+                        "Tool call | %-24s | %.0fms | %d chars returned",
+                        tool_name, elapsed_ms, len(tool_result),
+                    )
                 except Exception as exc:
-                    logger.exception("Tool %s raised an error", tool_name)
+                    elapsed_ms = (time.monotonic() - t0) * 1000
+                    logger.exception(
+                        "Tool error | %-24s | %.0fms | %s", tool_name, elapsed_ms, exc
+                    )
                     tool_result = f"Tool error: {exc}"
 
-            logger.debug("Tool %s result: %r", tool_name, tool_result[:200])
+            logger.debug("Tool result | %s | %r", tool_name, tool_result[:200])
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
                 "content": tool_result,
             })
 
-    logger.warning("Agent reached max turns (%d) without a final response", _MAX_TURNS)
+    elapsed = time.monotonic() - agent_start
+    logger.warning("Agent max turns reached | %d turns | %.2fs", _MAX_TURNS, elapsed)
     return "I wasn't able to complete that after several steps. Could you rephrase or try again?"
