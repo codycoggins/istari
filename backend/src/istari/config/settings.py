@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import yaml
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _CONFIG_DIR = Path(__file__).parent
@@ -56,6 +57,13 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+
+    @field_validator("gmail_token_path", "calendar_token_path", mode="before")
+    @classmethod
+    def _resolve_token_path(cls, v: str) -> str:
+        """Resolve relative token paths against the project root, not CWD."""
+        p = Path(v)
+        return str(p if p.is_absolute() else _PROJECT_ROOT / p)
 
     @property
     def cors_origin_list(self) -> list[str]:

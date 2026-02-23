@@ -5,7 +5,8 @@ See `istari-project-outline.md` for the full project specification.
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3: ReAct tool-calling agent + Apple Calendar COMPLETE** — 168 backend tests, 14 frontend tests, ruff clean
+- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE** — 168 backend tests, 14 frontend tests, ruff clean
+- **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **Known mypy issues (pre-existing, not introduced by us):** `google-api-python-client` and `PyYAML` have no type stubs; `routes/chat.py` and `chat.py` have pre-existing strict-mode violations. Run `mypy` on specific new files only to check your own work — compare against `gmail/reader.py` as the baseline for acceptable Google API errors.
