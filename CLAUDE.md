@@ -5,7 +5,7 @@ See `istari-project-outline.md` for the full project specification.
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3: ReAct tool-calling agent COMPLETE** — 149 backend tests, 14 frontend tests, ruff clean
+- **Phase 3: ReAct tool-calling agent + Apple Calendar COMPLETE** — 168 backend tests, 14 frontend tests, ruff clean
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
 - **Known mypy issues (pre-existing, not introduced by us):** `google-api-python-client` and `PyYAML` have no type stubs; `routes/chat.py` and `chat.py` have pre-existing strict-mode violations. Run `mypy` on specific new files only to check your own work — compare against `gmail/reader.py` as the baseline for acceptable Google API errors.
@@ -20,7 +20,7 @@ See `istari-project-outline.md` for the full project specification.
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
   - **TODO tools** — `create_todos` (bulk, single call), `list_todos` (filter: open/all/complete), `update_todo_status` (by ID or ILIKE pattern, bulk, synonym normalization), `get_priorities`
   - **Memory tools** — `remember`, `search_memory`
-  - **Gmail/Calendar tools** — `check_email`, `check_calendar` (same capability as before, now as agent tools)
+  - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
   - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
   - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
@@ -32,12 +32,9 @@ See `istari-project-outline.md` for the full project specification.
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:**
-  - `filesystem_read` tool — `read_file(path)` + `search_files(query)` enabling "read meeting notes and create TODOs"
-  - MCP server integration via `langchain-mcp-adapters` — register any MCP server tools into the agent dynamically
-  - `user_name` in .env — already in settings, just needs to be set for "assigned to Cody" queries
-  - pgvector semantic search over ingested content
-  - Persistent chat history
-  - Focus mode enforcement, pattern learning
+  - `filesystem_read` tool — `read_file(path)` + `search_files(query)` enabling "read meeting notes → create TODOs"
+  - MCP server integration via `langchain-mcp-adapters`
+  - pgvector semantic search, persistent chat history, focus mode enforcement
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
@@ -109,7 +106,7 @@ See `istari-project-outline.md` for the full project specification.
   - `classifier/rules.py` — rule-based sensitivity classifier, `classifier/classifier.py` — async wrapper
   - `notification/manager.py` — NotificationManager CRUD (create, list_recent, get_unread_count, mark_read, mark_all_read, mark_completed)
   - `gmail/reader.py` — GmailReader (list_unread, search, get_thread) with OAuth2 token
-  - `calendar/reader.py` — CalendarReader (list_upcoming, search, get_event) with OAuth2 token
+  - `calendar/reader.py` — CalendarReader (Google, OAuth2); `apple_calendar/reader.py` — AppleCalendarReader (EventKit, no auth); `CalendarEvent` dataclass shared between both
   - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
 - Agents: `backend/src/istari/agents/` — chat.py (ReAct agent loop + `build_tools`/`run_agent`), tools/ (todo.py, memory.py, gmail.py, calendar.py, base.py), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
@@ -153,6 +150,8 @@ See `istari-project-outline.md` for the full project specification.
 - **Worker quiet hours**: `respect_quiet_hours(fn)` decorator checks `settings.quiet_hours_start/end` before running; jobs read cron from `schedules.yml`
 - **Digests**: `DigestManager(session)` follows same pattern as NotificationManager; API routes follow same `DB = Annotated[...]` pattern; frontend DigestPanel polls every 60s via `useDigests` hook
 - **GmailReader / CalendarReader**: both wrap sync Google API in `asyncio.to_thread()`; token loaded from path at construction; expired tokens auto-refreshed and re-saved. CalendarReader reuses same `credentials.json` OAuth app but writes to `calendar_token.json`.
+- **AppleCalendarReader**: EventKit via `pyobjc-framework-EventKit` (optional dep `pip install -e ".[apple]"`); macOS only; no token file — OS permission stored in system. macOS 14+ needs `requestFullAccessToEventsWithCompletion_`, older uses `requestAccessToEntityType_completion_`. Search fetches wide window (±30/90 days) and filters locally (EventKit has no server-side text search). Authorization status 3 = full access. Tests mock entire `EventKit` and `Foundation` modules via `monkeypatch.setitem(sys.modules, ...)`.
+- **calendar_backend setting**: `CALENDAR_BACKEND=apple` or `google` (default) — routes `check_calendar` agent tool; `scripts/setup_apple_calendar.py` triggers the OS permission dialog on first use.
 - **Google API tool tests**: mock both `Credentials.from_authorized_user_file` and `googleapiclient.discovery.build` at the tool's module path (not google's); create a fake token file via `tmp_path`; set `mock_creds.expired = False`. See `test_gmail_reader.py` as canonical example.
 - **routes/chat.py elif variable names**: don't reuse the same variable name (e.g. `reader`) across `elif` branches — mypy infers type from first assignment and flags later branches as incompatible. Use distinct names (`gmail_reader`, `cal_reader`, etc.)
 - **ruff RUF012**: class-level mutable defaults (list, dict) require `ClassVar` annotation — `SCOPES: ClassVar[list[str]] = [...]`

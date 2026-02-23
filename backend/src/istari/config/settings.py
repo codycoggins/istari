@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     gmail_max_results: int = 20
     calendar_token_path: str = "calendar_token.json"
     calendar_max_results: int = 10
+    # "google" uses OAuth CalendarReader; "apple" uses EventKit (macOS only)
+    calendar_backend: str = "google"
 
     # User identity (injected into agent system prompt)
     user_name: str = ""

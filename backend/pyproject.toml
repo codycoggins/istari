@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+apple = [
+    "pyobjc-framework-EventKit>=11.0; sys_platform == 'darwin'",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
