@@ -57,3 +57,6 @@ token.json
 gmail_token.json
 calendar_token.json
 google_client_secret*.json
+
+# Personal memory files (user-owned, not checked in by default)
+memory/USER.md

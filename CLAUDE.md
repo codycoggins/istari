@@ -33,9 +33,12 @@ See `istari-project-outline.md` for the full project specification.
 - **Still needed before running:** `alembic revision --autogenerate -m "add digests table"` + `alembic upgrade head` (digests table not yet migrated)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
-- **Next up:**
-  - **Auto-inject memories into system prompt** — on each conversation start, load stored memories and append to system prompt so agent always knows user context without needing to call `search_memory`; ~20-line change to `_build_system_prompt()` + `MemoryStore.list_explicit()`
+- **Next up — Memory Phase (implement together):**
+  - **SOUL.md** — agent personality file at `memory/SOUL.md` (project root); replaces the hardcoded `_SYSTEM_PROMPT_TEMPLATE` personality section; read fresh on each conversation start; single source of truth (not DB); gitignore optional, user-owned
+  - **USER.md** — user profile file at `memory/USER.md` (project root); injected after SOUL.md as "What you know about this user"; replaces `user_name` setting for identity; single source of truth (not DB); gitignored by default
+  - **Auto-inject memories** — after loading SOUL.md + USER.md, append top N curated memories from `MemoryStore` into system prompt so agent never needs to call `search_memory` reactively
   - **Persist conversation history** — store each message to a `ConversationMessage` DB table; on WebSocket reconnect, load last N turns so history survives page refresh/reconnect
+  - **Post-turn memory extraction** — after each agent response, lightweight async LLM call extracts memorable facts and stores to `Memory` table (deduplicated); replaces the nightly learning stub with per-turn learning
   - MCP server integration via `langchain-mcp-adapters`
   - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
@@ -87,6 +90,16 @@ See `istari-project-outline.md` for the full project specification.
 - **Old `chat.py` agent**: replaced entirely; `proactive.py` (worker) is unaffected and stays as-is
 - **What stays**: WebSocket transport, all Manager classes (TodoManager, GmailReader, etc.), frontend, LiteLLM routing
 
+### Memory Architecture Decisions (Phase 4)
+- **SOUL.md and USER.md are files, not DB rows** — single source of truth; user edits them directly; no sync layer needed; read fresh on each conversation start (not cached at import time)
+- **Memory directory**: `memory/` at project root — `memory/SOUL.md` (personality), `memory/USER.md` (user profile); later: `memory/YYYY-MM-DD.md` daily notes
+- **SOUL.md replaces hardcoded system prompt personality** — `_build_system_prompt()` reads the file; falls back to a minimal default if file missing
+- **USER.md replaces `user_name` setting for identity** — injected after SOUL.md as a "user context" block; `user_name` setting kept for backwards compat but USER.md takes precedence when present
+- **System prompt injection order**: SOUL.md content → tool usage guidelines (in code) → USER.md content → top N curated memories from DB → (per-turn: semantically relevant memories added later)
+- **Gitignore USER.md by default** — contains personal data; SOUL.md may be checked in (it's agent config, not personal data)
+- **Post-turn extraction is async fire-and-forget** — does not block the WebSocket response; runs as `asyncio.create_task()`; failures logged but not surfaced to user
+- **Conversation history persistence**: `ConversationMessage(id, session_id, role, content, created_at)` table; load last 40 turns on reconnect; context compaction (summarize turns > 40) deferred to later phase
+
 ### Phase 1 Design Decisions
 - **Vector dimension 768** (nomic-embed-text via Ollama), not 1536 (OpenAI)
 - **LLM-based intent classification** — `classify_node` coerces `extracted_content` to string (LLMs may return JSON objects instead of plain strings); intent and extracted are set atomically to avoid partial-assignment on parse errors
@@ -102,6 +115,7 @@ See `istari-project-outline.md` for the full project specification.
 ## Key File Locations
 - Backend entry points: `backend/src/istari/api/main.py` (FastAPI app), `backend/src/istari/worker/main.py` (APScheduler)
 - Config: `backend/src/istari/config/settings.py`, `llm_routing.yml`, `schedules.yml`
+- Memory files (project root): `memory/SOUL.md` (agent personality), `memory/USER.md` (user profile — gitignored)
 - Models: `backend/src/istari/models/` — todo.py, memory.py, digest.py, notification.py, agent_run.py, user.py
 - DB session: `backend/src/istari/db/session.py`
 - Schemas: `backend/src/istari/api/schemas.py` — all Pydantic request/response models
