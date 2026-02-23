@@ -53,6 +53,7 @@ def _build_system_prompt(user_name: str = "") -> str:
 def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentTool]:
     """Assemble all agent tools bound to this session."""
     from istari.agents.tools.calendar import make_calendar_tools
+    from istari.agents.tools.filesystem import make_filesystem_tools
     from istari.agents.tools.gmail import make_gmail_tools
     from istari.agents.tools.memory import make_memory_tools
     from istari.agents.tools.todo import make_todo_tools
@@ -62,6 +63,7 @@ def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentToo
         *make_memory_tools(session, context),
         *make_gmail_tools(),
         *make_calendar_tools(),
+        *make_filesystem_tools(),
     ]
 
 

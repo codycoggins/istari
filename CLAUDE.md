@@ -5,7 +5,7 @@ See `istari-project-outline.md` for the full project specification.
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE** — 168 backend tests, 14 frontend tests, ruff clean
+- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE** — 184 backend tests, 14 frontend tests, ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
@@ -22,6 +22,7 @@ See `istari-project-outline.md` for the full project specification.
   - **TODO tools** — `create_todos` (bulk, single call), `list_todos` (filter: open/all/complete), `update_todo_status` (by ID or ILIKE pattern, bulk, synonym normalization), `get_priorities`
   - **Memory tools** — `remember`, `search_memory`
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
+  - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
   - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
   - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
@@ -33,7 +34,6 @@ See `istari-project-outline.md` for the full project specification.
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:**
-  - `filesystem_read` tool — `read_file(path)` + `search_files(query)` enabling "read meeting notes → create TODOs"
   - MCP server integration via `langchain-mcp-adapters`
   - pgvector semantic search, persistent chat history, focus mode enforcement
   - Frontend logging panel or log streaming for visibility into agent tool calls
@@ -152,6 +152,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Worker quiet hours**: `respect_quiet_hours(fn)` decorator checks `settings.quiet_hours_start/end` before running; jobs read cron from `schedules.yml`
 - **Digests**: `DigestManager(session)` follows same pattern as NotificationManager; API routes follow same `DB = Annotated[...]` pattern; frontend DigestPanel polls every 60s via `useDigests` hook
 - **GmailReader / CalendarReader**: both wrap sync Google API in `asyncio.to_thread()`; token loaded from path at construction; expired tokens auto-refreshed and re-saved. CalendarReader reuses same `credentials.json` OAuth app but writes to `calendar_token.json`.
+- **Filesystem tools**: `make_filesystem_tools()` needs no args (no session, no context); `read_file` expands `~` via `Path.expanduser()`, relative paths resolve from `Path.home()`; truncates at 8,000 chars; binary files return error string (not exception). `search_files` uses `search_text_in_files()` from `tools/filesystem/search.py`; scans up to 500 files, returns up to 10 results with preview line.
 - **AppleCalendarReader**: EventKit via `pyobjc-framework-EventKit` (optional dep `pip install -e ".[apple]"`); macOS only; no token file — OS permission stored in system. macOS 14+ needs `requestFullAccessToEventsWithCompletion_`, older uses `requestAccessToEntityType_completion_`. Search fetches wide window (±30/90 days) and filters locally (EventKit has no server-side text search). Authorization status 3 = full access. Tests mock entire `EventKit` and `Foundation` modules via `monkeypatch.setitem(sys.modules, ...)`.
 - **calendar_backend setting**: `CALENDAR_BACKEND=apple` or `google` (default) — routes `check_calendar` agent tool; `scripts/setup_apple_calendar.py` triggers the OS permission dialog on first use.
 - **Google API tool tests**: mock both `Credentials.from_authorized_user_file` and `googleapiclient.discovery.build` at the tool's module path (not google's); create a fake token file via `tmp_path`; set `mock_creds.expired = False`. See `test_gmail_reader.py` as canonical example.
