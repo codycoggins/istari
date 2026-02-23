@@ -34,8 +34,11 @@ See `istari-project-outline.md` for the full project specification.
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:**
+  - **Auto-inject memories into system prompt** — on each conversation start, load stored memories and append to system prompt so agent always knows user context without needing to call `search_memory`; ~20-line change to `_build_system_prompt()` + `MemoryStore.list_explicit()`
+  - **Persist conversation history** — store each message to a `ConversationMessage` DB table; on WebSocket reconnect, load last N turns so history survives page refresh/reconnect
   - MCP server integration via `langchain-mcp-adapters`
-  - pgvector semantic search, persistent chat history, focus mode enforcement
+  - pgvector semantic search for memories (column exists, search not wired up)
+  - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
 
 ## Development Commands
