@@ -7,6 +7,11 @@ Architecture: the LLM receives a set of tools and reasons across multiple turns:
   4. LLM sees results, may call more tools or produce a final response
   5. Loop continues until a final text response or max_turns is reached
 
+System prompt is assembled fresh on each turn from three sources (in order):
+  1. memory/SOUL.md  — agent personality (editable, checked into git)
+  2. memory/USER.md  — user profile (editable, gitignored)
+  3. Stored memories — top N explicit memories from the DB
+
 Tools are bound to the current DB session at WebSocket connect time via closures,
 so the agent has no direct DB access — all persistence goes through tool functions.
 """
@@ -14,6 +19,7 @@ so the agent has no direct DB access — all persistence goes through tool funct
 import json
 import logging
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,30 +30,54 @@ from istari.agents.tools.base import AgentContext, AgentTool
 logger = logging.getLogger(__name__)
 
 _MAX_TURNS = 8
+_MAX_PROMPT_MEMORIES = 20
+_MEMORY_DIR = Path(__file__).resolve().parents[4] / "memory"
 
-_SYSTEM_PROMPT_TEMPLATE = """\
-You are Istari, a personal AI assistant.{name_line}
-You help the user manage their TODOs, memories, email, and calendar.
-
-You have tools available. Use them whenever the user's request involves:
-- Viewing, adding, or updating TODOs or tasks
-- Remembering facts or preferences
-- Checking email or calendar
-
-Guidelines:
-- For any request to add a reminder, task, or action item: use create_todos.
-- For bulk operations (e.g. "add five todos"): call create_todos with all titles in one call.
-- For status updates (e.g. "mark as done"): use update_todo_status. "done" and "finished" \
-map to "complete".
-- When the user asks what to work on: use get_priorities.
-- After using a tool, summarize the result conversationally — do not just repeat the raw output.
-- Be concise and action-oriented.\
+_FALLBACK_SOUL = """\
+You are Istari, a personal AI assistant.
+You help the user manage their TODOs, memories, email, calendar, and local files.
+Be concise, action-oriented, and use the available tools when relevant.
 """
 
 
-def _build_system_prompt(user_name: str = "") -> str:
-    name_line = f" The user's name is {user_name}." if user_name else ""
-    return _SYSTEM_PROMPT_TEMPLATE.format(name_line=name_line)
+def _read_memory_file(filename: str) -> str:
+    """Read a file from memory/. Returns empty string if missing or unreadable."""
+    try:
+        return (_MEMORY_DIR / filename).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+async def build_system_prompt(
+    session: "AsyncSession",
+    user_name: str = "",
+) -> str:
+    """Assemble the full system prompt from SOUL.md, USER.md, and stored memories.
+
+    Injection order:
+      1. SOUL.md  (agent personality — falls back to minimal default if missing)
+      2. USER.md  (user profile — optional; falls back to user_name setting)
+      3. Top N explicit memories from the DB
+    """
+    from istari.tools.memory.store import MemoryStore
+
+    soul = _read_memory_file("SOUL.md") or _FALLBACK_SOUL
+    user_profile = _read_memory_file("USER.md")
+
+    memories = await MemoryStore(session).list_explicit()
+
+    parts: list[str] = [soul]
+
+    if user_profile:
+        parts.append(f"## User Profile\n\n{user_profile}")
+    elif user_name:
+        parts.append(f"The user's name is {user_name}.")
+
+    if memories:
+        mem_lines = [f"- {m.content}" for m in memories[:_MAX_PROMPT_MEMORIES]]
+        parts.append("## What you know about this user\n\n" + "\n".join(mem_lines))
+
+    return "\n\n---\n\n".join(parts)
 
 
 def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentTool]:
@@ -72,7 +102,7 @@ async def run_agent(
     history: list[dict],
     tools: list[AgentTool],
     *,
-    user_name: str = "",
+    system_prompt: str,
 ) -> str:
     """Run the ReAct agent loop and return the final response text."""
     from istari.llm.router import completion
@@ -81,7 +111,7 @@ async def run_agent(
     tool_schemas = [t.to_openai_schema() for t in tools]
 
     messages: list[dict] = [
-        {"role": "system", "content": _build_system_prompt(user_name)},
+        {"role": "system", "content": system_prompt},
         *history,
         {"role": "user", "content": user_message},
     ]

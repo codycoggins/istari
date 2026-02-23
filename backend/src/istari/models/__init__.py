@@ -2,6 +2,7 @@
 
 from istari.models.agent_run import AgentRun
 from istari.models.base import Base
+from istari.models.conversation import ConversationMessage
 from istari.models.digest import Digest
 from istari.models.memory import Memory
 from istari.models.notification import Notification
@@ -11,6 +12,7 @@ from istari.models.user import UserPreference, UserSetting
 __all__ = [
     "AgentRun",
     "Base",
+    "ConversationMessage",
     "Digest",
     "Memory",
     "Notification",

@@ -332,7 +332,7 @@ class TestRunAgent:
 
         with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = _make_text_response("Hello, how can I help?")
-            result = await run_agent("Hi there", [], tools)
+            result = await run_agent("Hi there", [], tools, system_prompt="You are Istari.")
 
         assert result == "Hello, how can I help?"
 
@@ -349,7 +349,10 @@ class TestRunAgent:
 
         with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
             mock_llm.side_effect = [tool_resp, final_resp]
-            await run_agent("Add todos: buy milk and walk the dog", [], tools)
+            await run_agent(
+                "Add todos: buy milk and walk the dog", [], tools,
+                system_prompt="You are Istari.",
+            )
 
         assert ctx.todo_created is True
         mgr = TodoManager(db_session)
@@ -366,11 +369,13 @@ class TestRunAgent:
 
         with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
             mock_llm.side_effect = Exception("API unavailable")
-            result = await run_agent("What should I do?", [], tools)
+            result = await run_agent(
+                "What should I do?", [], tools, system_prompt="You are Istari.",
+            )
 
         assert "trouble" in result.lower() or "try again" in result.lower()
 
-    async def test_user_name_in_system_prompt(self, db_session):
+    async def test_system_prompt_passed_to_llm(self, db_session):
         from istari.agents.chat import build_tools, run_agent
 
         ctx = AgentContext()
@@ -378,7 +383,7 @@ class TestRunAgent:
 
         with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = _make_text_response("Got it!")
-            await run_agent("Hi", [], tools, user_name="Cody")
+            await run_agent("Hi", [], tools, system_prompt="The user's name is Cody.")
 
         call_messages = mock_llm.call_args.kwargs["messages"]
         system_msg = call_messages[0]

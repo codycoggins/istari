@@ -5,7 +5,8 @@ See `istari-project-outline.md` for the full project specification.
 ## Current Status
 - **Phase 1 (MVP): COMPLETE**
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE** — 184 backend tests, 14 frontend tests, ruff clean
+- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE**
+- **Phase 4: Memory architecture COMPLETE** — 206 backend tests, 14 frontend tests, ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **Known issue:** `tests/unit/test_agents/test_chat.py` fails to collect due to `ModuleNotFoundError: No module named 'tests'` — pre-existing from commit 684e809 (LLM classification refactor changed import paths)
@@ -23,6 +24,10 @@ See `istari-project-outline.md` for the full project specification.
   - **Memory tools** — `remember`, `search_memory`
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
   - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
+  - **Memory files** — `memory/SOUL.md` (agent personality, checked in), `memory/USER.md` (user profile, gitignored); read fresh on every conversation start; no DB sync needed
+  - **build_system_prompt(session)** — assembles prompt from SOUL.md → USER.md (or `user_name` fallback) → top 20 stored memories; replaces hardcoded `_SYSTEM_PROMPT_TEMPLATE`
+  - **Persistent conversation history** — `ConversationMessage` table; `ConversationStore.load_history()` returns last 40 turns in chronological order; loaded once at WebSocket connect, saved after each exchange
+  - **Post-turn memory extraction** — `memory_extractor.extract_and_store()` fires as `asyncio.create_task()` after each response; LLM extracts memorable facts → stored to `Memory` table (case-insensitive dedup); uses `memory_extraction` LLM task (local model, temperature=0.0)
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
   - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
   - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
@@ -30,19 +35,15 @@ See `istari-project-outline.md` for the full project specification.
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge, digest panel
-- **Still needed before running:** `alembic revision --autogenerate -m "add digests table"` + `alembic upgrade head` (digests table not yet migrated)
+- **DB migrations:** all tables exist and are up to date (digests, conversation_messages both applied)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
-- **Next up — Memory Phase (implement together):**
-  - **SOUL.md** — agent personality file at `memory/SOUL.md` (project root); replaces the hardcoded `_SYSTEM_PROMPT_TEMPLATE` personality section; read fresh on each conversation start; single source of truth (not DB); gitignore optional, user-owned
-  - **USER.md** — user profile file at `memory/USER.md` (project root); injected after SOUL.md as "What you know about this user"; replaces `user_name` setting for identity; single source of truth (not DB); gitignored by default
-  - **Auto-inject memories** — after loading SOUL.md + USER.md, append top N curated memories from `MemoryStore` into system prompt so agent never needs to call `search_memory` reactively
-  - **Persist conversation history** — store each message to a `ConversationMessage` DB table; on WebSocket reconnect, load last N turns so history survives page refresh/reconnect
-  - **Post-turn memory extraction** — after each agent response, lightweight async LLM call extracts memorable facts and stores to `Memory` table (deduplicated); replaces the nightly learning stub with per-turn learning
+- **Next up:**
   - MCP server integration via `langchain-mcp-adapters`
   - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
+  - Context compaction — summarize conversation turns older than 40 before they're dropped
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
@@ -181,3 +182,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Frontend prop-wiring pattern**: when a parent needs to call a function owned by a child, add `onRegisterSend?: (fn) => void` prop; child calls it in `useEffect([..., fn])`. Test all three layers: child calls the prop, the prop receives the real function, and an App-level test confirms end-to-end button → sendMessage
 - **Frontend wiring tests**: mock `useChat` with `vi.mock("../../src/hooks/useChat", () => ({ useChat: () => ({ sendMessage: mockFn, ... }) }))` — see `ChatPanel.test.tsx` as canonical example
 - **Backend logging**: `logging.basicConfig()` in FastAPI `lifespan` wires `LOG_LEVEL` env var; agent tool calls logged at INFO with `"Tool call | %-24s | %.0fms | %d chars returned"` format; tool arguments at DEBUG only (may contain PII); agent start/finish at INFO with elapsed time; use `logger = logging.getLogger(__name__)` per module
+- **build_system_prompt(session, user_name="")**: async function in `agents/chat.py`; reads SOUL.md and USER.md via `_read_memory_file(filename)` (sync, returns "" if missing); falls back to USER.md → `user_name` setting for identity; loads `MemoryStore.list_explicit()` for injection; called inside the `async_session_factory()` block in `routes/chat.py`
+- **ConversationStore**: `tools/conversation/store.py`; `load_history()` returns last 40 turns oldest-first; `save_turn(user, assistant)` adds two rows and flushes; loaded once at WebSocket connect, saved after each response before `send_json`
+- **Memory extractor**: `agents/memory_extractor.py`; `extract_and_store(user_msg, asst_msg, session_factory)` — fire-and-forget; patches: `istari.agents.memory_extractor.completion` and `istari.agents.memory_extractor.MemoryStore` for tests; `# noqa: RUF006` on `asyncio.create_task()` call
+- **SOUL.md / USER.md editing**: users edit `memory/SOUL.md` (personality) and `memory/USER.md` (profile) directly; changes take effect on next message with no restart; USER.md gitignored; USER.md.example committed as a template

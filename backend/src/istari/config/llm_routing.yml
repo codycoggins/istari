@@ -49,3 +49,8 @@ tasks:
     model: ollama/llama3.1:8b-instruct-q8_0
     temperature: 0.3
     description: On-demand Calendar scan summary for chat responses
+
+  memory_extraction:
+    model: ollama/llama3.1:8b-instruct-q8_0
+    temperature: 0.0
+    description: Extract memorable facts from conversation turns — local, structured JSON output
