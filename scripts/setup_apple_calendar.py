@@ -11,6 +11,7 @@ Usage:
 """
 
 import sys
+import time
 import threading
 
 
@@ -70,7 +71,13 @@ def main() -> None:
     else:
         store.requestAccessToEntityType_completion_(EventKit.EKEntityTypeEvent, handler)
 
-    done.wait(timeout=30)
+    # Pump the RunLoop — the TCC callback is delivered via RunLoop,
+    # so blocking with done.wait() prevents it from ever firing.
+    import Foundation  # type: ignore[import-untyped]
+    run_loop = Foundation.NSRunLoop.currentRunLoop()
+    deadline = time.monotonic() + 30
+    while not done.is_set() and time.monotonic() < deadline:
+        run_loop.runUntilDate_(Foundation.NSDate.dateWithTimeIntervalSinceNow_(0.1))
 
     if result[0]:
         print("\nAccess granted! Istari can now read your calendar.")

@@ -18,6 +18,7 @@ import asyncio
 import datetime
 import logging
 import threading
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,15 @@ class AppleCalendarReader:
             )
 
     def _request_access_sync(self) -> bool:
-        """Request calendar access; blocks until the OS dialog is resolved."""
+        """Request calendar access; pumps the RunLoop until the OS responds.
+
+        The TCC permission callback is delivered via the macOS RunLoop.
+        Blocking with threading.Event.wait() prevents the RunLoop from
+        running, so the callback never fires. Pumping in short bursts
+        lets both the RunLoop and our done-check coexist.
+        """
+        import Foundation  # type: ignore[import-untyped]
+
         result: list[bool] = [False]
         done = threading.Event()
 
@@ -125,7 +134,14 @@ class AppleCalendarReader:
                 self._ek.EKEntityTypeEvent, handler
             )
 
-        done.wait(timeout=30)
+        # Pump the RunLoop in 100 ms bursts instead of blocking
+        run_loop = Foundation.NSRunLoop.currentRunLoop()
+        deadline = time.monotonic() + 30
+        while not done.is_set() and time.monotonic() < deadline:
+            run_loop.runUntilDate_(
+                Foundation.NSDate.dateWithTimeIntervalSinceNow_(0.1)
+            )
+
         logger.info("Apple Calendar access granted: %s", result[0])
         return result[0]
 
