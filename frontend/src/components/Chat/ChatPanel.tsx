@@ -18,32 +18,53 @@ export function ChatPanel({ onTodoCreated, onRegisterSend }: ChatPanelProps) {
   }, [onRegisterSend, sendMessage]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <header
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      {/* Slim connection status bar */}
+      <div
         style={{
-          padding: "1rem",
-          borderBottom: "1px solid #e0e0e0",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
+          padding: "0.375rem 1rem",
+          gap: "0.375rem",
+          borderBottom: "1px solid var(--border-subtle)",
+          flexShrink: 0,
         }}
       >
-        <h1 style={{ fontSize: "1.25rem" }}>Istari</h1>
         <span
           style={{
-            fontSize: "0.75rem",
-            color: isConnected ? "#4caf50" : "#f44336",
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: isConnected ? "var(--success)" : "var(--danger)",
+            animation: isConnected ? "none" : "dot-pulse 1.5s ease-in-out infinite",
           }}
-        >
+        />
+        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
           {isConnected ? "Connected" : "Reconnecting..."}
         </span>
-      </header>
+      </div>
+
       <MessageList messages={messages} />
+
       {isLoading && (
-        <div style={{ padding: "0 1rem 0.5rem", color: "#888", fontSize: "0.875rem" }}>
+        <div
+          style={{
+            padding: "0.375rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.375rem",
+            flexShrink: 0,
+            color: "var(--text-secondary)",
+            fontSize: "0.8125rem",
+          }}
+        >
+          <span style={{ color: "var(--accent)" }}>✦</span>
           Istari is thinking...
         </div>
       )}
+
       <ChatInput onSend={sendMessage} disabled={!isConnected} />
     </div>
   );

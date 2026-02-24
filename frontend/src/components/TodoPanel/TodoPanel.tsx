@@ -33,46 +33,100 @@ export function TodoPanel({
   const visibleTodos = todos.filter((t) => !isCompletedBeforeToday(t));
 
   return (
-    <div style={{ padding: "1rem" }}>
+    <div style={{ padding: "1rem 0.875rem", display: "flex", flexDirection: "column", gap: 0 }}>
+      {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "1rem",
+          marginBottom: "0.75rem",
+          paddingBottom: "0.625rem",
+          borderBottom: "1px solid var(--border-subtle)",
         }}
       >
-        <h2 style={{ fontSize: "1rem" }}>TODOs</h2>
+        <span
+          style={{
+            fontSize: "0.625rem",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "var(--text-muted)",
+          }}
+        >
+          Tasks
+        </span>
         <button
           onClick={onAskPriorities}
-          style={{ fontSize: "0.875rem", padding: "0.25rem 0.75rem" }}
+          style={{
+            background: "none",
+            border: "1px solid var(--border-default)",
+            borderRadius: "5px",
+            padding: "0.25rem 0.625rem",
+            cursor: "pointer",
+            fontSize: "0.6875rem",
+            color: "var(--text-secondary)",
+            fontFamily: "inherit",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "var(--border-accent)";
+            e.currentTarget.style.color = "var(--accent)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--border-default)";
+            e.currentTarget.style.color = "var(--text-secondary)";
+          }}
         >
-          What should I work on?
+          Prioritize
         </button>
       </div>
-      {isLoading && <p style={{ color: "#888", fontSize: "0.875rem" }}>Loading...</p>}
+
+      {/* Todo list */}
+      {isLoading && (
+        <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
+          Loading...
+        </p>
+      )}
       {!isLoading && visibleTodos.length === 0 && (
-        <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
+          No tasks yet
+        </p>
       )}
       {visibleTodos.map((todo) => (
         <TodoItem key={todo.id} todo={todo} onComplete={onComplete} onReopen={onReopen} />
       ))}
 
+      {/* Settings section */}
       {settings && (
         <div
           style={{
-            marginTop: "1.5rem",
-            paddingTop: "1rem",
-            borderTop: "1px solid #e0e0e0",
+            marginTop: "1.25rem",
+            paddingTop: "0.875rem",
+            borderTop: "1px solid var(--border-subtle)",
           }}
         >
-          <h3 style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>Settings</h3>
+          <span
+            style={{
+              display: "block",
+              fontSize: "0.625rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+              marginBottom: "0.625rem",
+            }}
+          >
+            Settings
+          </span>
           <label
             style={{
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              fontSize: "0.875rem",
+              fontSize: "0.8125rem",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
               marginBottom: "0.5rem",
             }}
           >
@@ -80,10 +134,17 @@ export function TodoPanel({
               type="checkbox"
               checked={focusMode}
               onChange={(e) => onToggleFocusMode?.(e.target.checked)}
+              style={{ accentColor: "var(--accent)", cursor: "pointer" }}
             />
             Focus mode
           </label>
-          <p style={{ fontSize: "0.75rem", color: "#888" }}>
+          <p
+            style={{
+              fontSize: "0.6875rem",
+              color: "var(--text-muted)",
+              margin: 0,
+            }}
+          >
             Quiet hours: {quietStart}:00 – {quietEnd}:00
           </p>
         </div>

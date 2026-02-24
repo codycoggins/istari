@@ -43,11 +43,29 @@ export default function App() {
         className="app-header"
         style={{
           display: "flex",
-          justifyContent: "flex-end",
-          padding: "0.5rem 1rem",
-          borderBottom: "1px solid #e0e0e0",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0.5rem 1.25rem",
         }}
       >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+          <img
+            src="/istari-icon.png"
+            alt="Istari"
+            style={{ width: "28px", height: "28px", borderRadius: "7px" }}
+          />
+          <span
+            style={{
+              fontFamily: "'Cinzel', serif",
+              fontSize: "0.9375rem",
+              fontWeight: 500,
+              letterSpacing: "0.14em",
+              color: "var(--accent)",
+            }}
+          >
+            ISTARI
+          </span>
+        </div>
         <NotificationInbox
           notifications={notifications}
           unreadCount={unreadCount}
@@ -57,28 +75,32 @@ export default function App() {
           onMarkCompleted={markCompleted}
         />
       </header>
-      <main className="chat-area">
-        <ChatPanel
-          onTodoCreated={handleTodoCreated}
-          onRegisterSend={(fn) => { chatSendRef.current = fn; }}
-        />
-      </main>
-      <aside className="todo-sidebar">
-        <DigestPanel
-          digests={digests}
-          isLoading={digestsLoading}
-          onMarkReviewed={markReviewed}
-        />
-        <TodoPanel
-          todos={todos}
-          isLoading={isLoading}
-          onComplete={completeTodo}
-          onReopen={reopenTodo}
-          onAskPriorities={handleAskPriorities}
-          settings={settings}
-          onToggleFocusMode={handleToggleFocusMode}
-        />
-      </aside>
+      <div className="app-body">
+        <main className="chat-area">
+          <ChatPanel
+            onTodoCreated={handleTodoCreated}
+            onRegisterSend={(fn) => {
+              chatSendRef.current = fn;
+            }}
+          />
+        </main>
+        <aside className="todo-sidebar">
+          <DigestPanel
+            digests={digests}
+            isLoading={digestsLoading}
+            onMarkReviewed={markReviewed}
+          />
+          <TodoPanel
+            todos={todos}
+            isLoading={isLoading}
+            onComplete={completeTodo}
+            onReopen={reopenTodo}
+            onAskPriorities={handleAskPriorities}
+            settings={settings}
+            onToggleFocusMode={handleToggleFocusMode}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

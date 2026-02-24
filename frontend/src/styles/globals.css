@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
 *,
 *::before,
 *::after {
@@ -7,20 +9,68 @@
 }
 
 :root {
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  /* Surfaces */
+  --bg-base:     #0d1520;
+  --bg-surface:  #111c2e;
+  --bg-elevated: #162236;
+  --bg-input:    #0a1118;
+
+  /* Borders */
+  --border-subtle:  #172437;
+  --border-default: #1e3350;
+  --border-accent:  rgba(201, 162, 74, 0.28);
+
+  /* Text */
+  --text-primary:   #d9e8f5;
+  --text-secondary: #5f7d9b;
+  --text-muted:     #2e4560;
+
+  /* Brand accent — warm gold */
+  --accent:     #c9a24a;
+  --accent-dim: rgba(201, 162, 74, 0.12);
+
+  /* Eisenhower quadrant colors */
+  --q1: #b84040;  --q1-bg: rgba(184,  64,  64, 0.14);
+  --q2: #3a68c0;  --q2-bg: rgba( 58, 104, 192, 0.14);
+  --q3: #bf7a3b;  --q3-bg: rgba(191, 122,  59, 0.14);
+  --q4: #3d5168;  --q4-bg: rgba( 61,  81, 104, 0.14);
+
+  /* Status */
+  --success: #3d9e72;
+  --danger:  #b84040;
+
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 18px;
   line-height: 1.5;
-  color: #1a1a1a;
-  background: #fafafa;
+  color: var(--text-primary);
+  background: var(--bg-base);
 }
 
+/* ── Scrollbars ─────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-accent); }
+
+/* ── Layout ─────────────────────────────────────────── */
 .app-layout {
   display: flex;
+  flex-direction: column;
   height: 100vh;
+  overflow: hidden;
+}
+
+.app-header {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .chat-area {
@@ -28,22 +78,26 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
+  background: var(--bg-base);
 }
 
 .todo-sidebar {
-  width: 360px;
-  border-left: 1px solid #e0e0e0;
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
   overflow-y: auto;
 }
 
+/* ── Animations ─────────────────────────────────────── */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
-  .app-layout {
-    flex-direction: column;
-  }
-  .todo-sidebar {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid #e0e0e0;
-    max-height: 40vh;
-  }
+  .app-body     { flex-direction: column; }
+  .todo-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-subtle); max-height: 40vh; }
 }
