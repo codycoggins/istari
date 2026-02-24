@@ -7,6 +7,7 @@ import email.utils
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -50,7 +51,7 @@ class GmailReader:
             raise FileNotFoundError(
                 f"Gmail token not found at {path}. Run: python scripts/setup_gmail.py"
             )
-        creds = Credentials.from_authorized_user_file(str(path))
+        creds = Credentials.from_authorized_user_file(str(path))  # type: ignore[no-untyped-call]
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             path.write_text(creds.to_json())
@@ -113,7 +114,7 @@ class GmailReader:
         return await asyncio.to_thread(self._get_thread_sync, thread_id)
 
     @staticmethod
-    def _parse_summary(msg: dict) -> EmailSummary:
+    def _parse_summary(msg: dict[str, Any]) -> EmailSummary:
         headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
         return EmailSummary(
             id=msg["id"],
@@ -135,7 +136,7 @@ class GmailReader:
             return None
 
     @staticmethod
-    def _extract_body(payload: dict) -> str:
+    def _extract_body(payload: dict[str, Any]) -> str:
         """Extract plain text body from a message payload, handling multipart."""
         mime = payload.get("mimeType", "")
         if mime == "text/plain":

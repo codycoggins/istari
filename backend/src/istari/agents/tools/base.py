@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 # Map common user phrasings to valid TodoStatus values
 STATUS_SYNONYMS: dict[str, str] = {
@@ -48,11 +49,11 @@ class AgentTool:
 
     name: str
     description: str
-    parameters: dict  # JSON Schema "parameters" object (type, properties, required)
+    parameters: dict[str, Any]  # JSON Schema "parameters" object (type, properties, required)
     fn: Callable[..., Awaitable[str]]
     _required: list[str] = field(default_factory=list, repr=False)
 
-    def to_openai_schema(self) -> dict:
+    def to_openai_schema(self) -> dict[str, Any]:
         return {
             "type": "function",
             "function": {

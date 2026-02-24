@@ -15,7 +15,7 @@ DB = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.get("/", response_model=MemoryListResponse)
-async def list_memories(db: DB):
+async def list_memories(db: DB) -> MemoryListResponse:
     store = MemoryStore(db)
     memories = await store.list_explicit()
     return MemoryListResponse(
@@ -24,7 +24,7 @@ async def list_memories(db: DB):
 
 
 @router.post("/", response_model=MemoryResponse, status_code=201)
-async def create_memory(body: MemoryCreate, db: DB):
+async def create_memory(body: MemoryCreate, db: DB) -> MemoryResponse:
     store = MemoryStore(db)
     memory = await store.store(content=body.content)
     await db.commit()

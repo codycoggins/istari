@@ -18,7 +18,7 @@ class TodoManager:
     _VISIBLE = (TodoStatus.OPEN, TodoStatus.IN_PROGRESS, TodoStatus.BLOCKED, TodoStatus.COMPLETE)
 
     async def create(self, title: str, **kwargs: object) -> Todo:
-        todo = Todo(title=title, status=TodoStatus.OPEN, **kwargs)  # type: ignore[arg-type]
+        todo = Todo(title=title, status=TodoStatus.OPEN, **kwargs)
         self.session.add(todo)
         await self.session.flush()
         return todo

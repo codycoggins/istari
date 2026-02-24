@@ -6,7 +6,7 @@ Graph nodes are pure — DB writes happen in the worker job callers.
 
 import logging
 from dataclasses import asdict
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
@@ -19,10 +19,10 @@ class ProactiveState(TypedDict, total=False):
     gmail_max_results: int
     stale_todo_days: int
     db_session: object  # AsyncSession — passed through, used by nodes
-    emails: list[dict]
-    stale_todos: list[dict]
+    emails: list[dict[str, Any]]
+    stale_todos: list[dict[str, Any]]
     digest_text: str
-    notifications: list[dict]
+    notifications: list[dict[str, Any]]
 
 
 # --- Graph nodes ---
@@ -55,7 +55,7 @@ async def check_staleness_node(state: ProactiveState) -> ProactiveState:
 
     session = state.get("db_session")
     days = state.get("stale_todo_days", 3)
-    stale: list[dict] = []
+    stale: list[dict[str, Any]] = []
 
     if session is not None:
         try:
@@ -164,7 +164,7 @@ def _after_gmail(state: ProactiveState) -> str:
 # --- Build graph ---
 
 
-def build_proactive_graph() -> StateGraph:
+def build_proactive_graph() -> Any:
     graph = StateGraph(ProactiveState)
 
     graph.add_node("scan_gmail", scan_gmail_node)

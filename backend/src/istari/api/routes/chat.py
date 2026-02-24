@@ -17,12 +17,12 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.get("/")
-async def get_conversations() -> dict:
+async def get_conversations() -> dict[str, list[object]]:
     return {"conversations": []}
 
 
 @router.websocket("/ws")
-async def chat_ws(ws: WebSocket):
+async def chat_ws(ws: WebSocket) -> None:
     await ws.accept()
 
     # Load history once at connection time

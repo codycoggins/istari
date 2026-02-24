@@ -15,6 +15,6 @@ class Digest(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(50))
     content_summary: Mapped[str] = mapped_column(Text)
-    items_json: Mapped[dict | None] = mapped_column(JSON)
+    items_json: Mapped[dict[str, object] | None] = mapped_column(JSON)
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
     reviewed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))

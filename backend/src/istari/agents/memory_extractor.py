@@ -7,6 +7,8 @@ Memory table. This is what makes Istari learn from conversations over time.
 import json
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from istari.llm.router import completion
 from istari.tools.memory.store import MemoryStore
 
@@ -38,7 +40,7 @@ Assistant: {assistant_response}
 async def extract_and_store(
     user_message: str,
     assistant_response: str,
-    session_factory,
+    session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     """Extract memorable facts from a turn and persist any novel ones."""
     prompt = _EXTRACT_PROMPT.format(

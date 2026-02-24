@@ -3,6 +3,7 @@
 import contextlib
 import json
 import logging
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,11 +45,11 @@ Example output:
 ]"""
 
 
-async def _classify_titles(titles: list[str]) -> list[dict]:
+async def _classify_titles(titles: list[str]) -> list[dict[str, Any]]:
     """Call LLM to classify titles; returns empty list on any error."""
     try:
         resp = await completion(
-            task="todo_classification",
+            "todo_classification",
             messages=[
                 {"role": "system", "content": _CLASSIFY_SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(titles)},

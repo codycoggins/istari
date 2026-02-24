@@ -5,7 +5,7 @@ import datetime
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -44,7 +44,7 @@ class CalendarReader:
                 f"Calendar token not found at {path}. "
                 "Run: python scripts/setup_calendar.py"
             )
-        creds = Credentials.from_authorized_user_file(str(path), self.SCOPES)
+        creds = Credentials.from_authorized_user_file(str(path), self.SCOPES)  # type: ignore[no-untyped-call]
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             path.write_text(creds.to_json())
@@ -59,7 +59,7 @@ class CalendarReader:
         max_results: int = 10,
     ) -> list[CalendarEvent]:
         now = datetime.datetime.now(datetime.UTC)
-        params: dict = {
+        params: dict[str, Any] = {
             "calendarId": "primary",
             "maxResults": max_results,
             "singleEvents": True,
@@ -110,7 +110,7 @@ class CalendarReader:
         return await asyncio.to_thread(self._get_event_sync, event_id)
 
     @staticmethod
-    def _parse_event(event: dict) -> CalendarEvent:
+    def _parse_event(event: dict[str, Any]) -> CalendarEvent:
         start_raw = event.get("start", {})
         end_raw = event.get("end", {})
         all_day = "date" in start_raw and "dateTime" not in start_raw
@@ -129,7 +129,7 @@ class CalendarReader:
 
     @staticmethod
     def _parse_dt(
-        dt_dict: dict,
+        dt_dict: dict[str, Any],
     ) -> datetime.datetime | datetime.date | None:
         if not dt_dict:
             return None

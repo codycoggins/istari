@@ -3,6 +3,8 @@
 import datetime
 import functools
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -23,14 +25,14 @@ def _in_quiet_hours() -> bool:
     return start <= now_hour < end
 
 
-def respect_quiet_hours(fn):
+def respect_quiet_hours(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator that skips job execution during quiet hours."""
 
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         if _in_quiet_hours():
             logger.info("Skipping %s — quiet hours active", fn.__name__)
-            return
+            return None
         return fn(*args, **kwargs)
 
     return wrapper

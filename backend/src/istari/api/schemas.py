@@ -119,7 +119,7 @@ class DigestResponse(BaseModel):
     id: int
     source: str
     content_summary: str
-    items_json: dict | None = None
+    items_json: dict[str, object] | None = None
     reviewed: bool
     reviewed_at: datetime.datetime | None = None
     created_at: datetime.datetime

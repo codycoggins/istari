@@ -5,6 +5,7 @@ the CALENDAR_BACKEND setting ("apple" or "google").
 """
 
 import logging
+from typing import Any
 
 from .base import AgentTool
 
@@ -20,6 +21,7 @@ def make_calendar_tools() -> list[AgentTool]:
         max_r = settings.calendar_max_results
 
         try:
+            reader: Any
             if settings.calendar_backend == "apple":
                 from istari.tools.apple_calendar.reader import AppleCalendarReader
                 reader = AppleCalendarReader()

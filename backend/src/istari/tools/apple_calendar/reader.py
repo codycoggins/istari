@@ -32,7 +32,7 @@ class AppleCalendarReader:
 
     def __init__(self) -> None:
         try:
-            import EventKit  # type: ignore[import-untyped]
+            import EventKit
         except ImportError as exc:
             raise ImportError(
                 "Apple Calendar requires pyobjc-framework-EventKit. "
@@ -117,7 +117,7 @@ class AppleCalendarReader:
         running, so the callback never fires. Pumping in short bursts
         lets both the RunLoop and our done-check coexist.
         """
-        import Foundation  # type: ignore[import-untyped]
+        import Foundation
 
         result: list[bool] = [False]
         done = threading.Event()
@@ -155,7 +155,7 @@ class AppleCalendarReader:
         end: datetime.datetime,
         max_results: int,
     ) -> list[CalendarEvent]:
-        import Foundation  # type: ignore[import-untyped]
+        import Foundation
 
         start_ns = Foundation.NSDate.dateWithTimeIntervalSince1970_(start.timestamp())
         end_ns = Foundation.NSDate.dateWithTimeIntervalSince1970_(end.timestamp())

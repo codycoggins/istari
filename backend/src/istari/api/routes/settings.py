@@ -22,7 +22,7 @@ _DEFAULTS: dict[str, str] = {
 
 
 @router.get("/", response_model=SettingsResponse)
-async def get_settings(db: DB):
+async def get_settings(db: DB) -> SettingsResponse:
     result = await db.execute(select(UserSetting))
     rows = result.scalars().all()
     merged = dict(_DEFAULTS)
@@ -32,7 +32,7 @@ async def get_settings(db: DB):
 
 
 @router.put("/{key}", response_model=SettingResponse)
-async def update_setting(key: str, body: SettingUpdate, db: DB):
+async def update_setting(key: str, body: SettingUpdate, db: DB) -> SettingResponse:
     existing = await db.get(UserSetting, key)
     if existing:
         existing.value = body.value

@@ -82,4 +82,4 @@ class NotificationManager:
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount  # type: ignore[return-value]
+        return result.rowcount  # type: ignore[attr-defined, no-any-return]

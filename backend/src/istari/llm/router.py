@@ -1,5 +1,7 @@
 """LLM routing — LiteLLM wrapper with model selection per task type."""
 
+from typing import Any
+
 import litellm
 
 from istari.config.settings import settings
@@ -11,7 +13,7 @@ litellm.suppress_debug_info = True
 
 async def completion(
     task_type: str,
-    messages: list[dict],  # type: ignore[type-arg]
+    messages: list[dict[str, Any]],
     *,
     sensitive: bool = False,
     **kwargs: object,
@@ -26,7 +28,7 @@ async def completion(
     if sensitive:
         model = "ollama/llama3"
 
-    call_kwargs: dict[str, object] = {
+    call_kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": config.get("temperature", 0.7),
@@ -43,7 +45,7 @@ async def completion(
         call_kwargs["api_key"] = settings.openai_api_key
 
     call_kwargs.update(kwargs)
-    return await litellm.acompletion(**call_kwargs)  # type: ignore[arg-type]
+    return await litellm.acompletion(**call_kwargs)
 
 
 async def embedding(text: str) -> list[float]:
@@ -51,7 +53,7 @@ async def embedding(text: str) -> list[float]:
     config = get_model_config("embedding")
     model = config["model"]
 
-    emb_kwargs: dict[str, object] = {
+    emb_kwargs: dict[str, Any] = {
         "model": model,
         "input": [text],
     }
@@ -59,5 +61,5 @@ async def embedding(text: str) -> list[float]:
     if model.startswith("ollama/"):
         emb_kwargs["api_base"] = settings.ollama_base_url
 
-    response = await litellm.aembedding(**emb_kwargs)  # type: ignore[arg-type]
-    return response.data[0]["embedding"]  # type: ignore[index,return-value]
+    response = await litellm.aembedding(**emb_kwargs)
+    return response.data[0]["embedding"]  # type: ignore[no-any-return]

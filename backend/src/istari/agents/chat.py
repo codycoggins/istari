@@ -20,7 +20,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,7 +99,7 @@ def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentToo
 
 async def run_agent(
     user_message: str,
-    history: list[dict],
+    history: list[dict[str, Any]],
     tools: list[AgentTool],
     *,
     system_prompt: str,
@@ -110,7 +110,7 @@ async def run_agent(
     tool_map = {t.name: t for t in tools}
     tool_schemas = [t.to_openai_schema() for t in tools]
 
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         *history,
         {"role": "user", "content": user_message},

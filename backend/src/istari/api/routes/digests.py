@@ -15,7 +15,7 @@ DB = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.get("/", response_model=DigestListResponse)
-async def list_digests(db: DB, limit: int = 10):
+async def list_digests(db: DB, limit: int = 10) -> DigestListResponse:
     mgr = DigestManager(db)
     digests = await mgr.list_recent(limit=limit)
     return DigestListResponse(
@@ -24,7 +24,7 @@ async def list_digests(db: DB, limit: int = 10):
 
 
 @router.post("/{digest_id}/review", response_model=DigestResponse)
-async def review_digest(digest_id: int, db: DB):
+async def review_digest(digest_id: int, db: DB) -> DigestResponse:
     mgr = DigestManager(db)
     digest = await mgr.mark_reviewed(digest_id)
     if digest is None:

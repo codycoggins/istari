@@ -18,7 +18,7 @@ class DigestManager:
         self,
         source: str,
         content_summary: str,
-        items_json: dict | None = None,
+        items_json: dict[str, object] | None = None,
     ) -> Digest:
         digest = Digest(
             source=source,

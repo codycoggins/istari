@@ -1,8 +1,9 @@
 """Application settings — loads from .env + YAML config files."""
 
 from pathlib import Path
+from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,7 +11,7 @@ _CONFIG_DIR = Path(__file__).parent
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]  # src/istari/config/ -> project root
 
 
-def _load_yaml(filename: str) -> dict:
+def _load_yaml(filename: str) -> dict[str, Any]:
     path = _CONFIG_DIR / filename
     if path.exists():
         with open(path) as f:
@@ -70,11 +71,11 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",")]
 
     @property
-    def llm_routing(self) -> dict:
+    def llm_routing(self) -> dict[str, Any]:
         return _load_yaml("llm_routing.yml")
 
     @property
-    def schedules(self) -> dict:
+    def schedules(self) -> dict[str, Any]:
         return _load_yaml("schedules.yml")
 
 
