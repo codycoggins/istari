@@ -4,6 +4,8 @@ export interface Todo {
   body?: string;
   status: "open" | "in_progress" | "blocked" | "complete" | "deferred";
   priority?: number;
+  urgent?: boolean | null;
+  important?: boolean | null;
   source?: string;
   sourceLink?: string;
   dueDate?: string;

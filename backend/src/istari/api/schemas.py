@@ -28,6 +28,8 @@ class TodoResponse(BaseModel):
     body: str | None = None
     status: str
     priority: int | None = None
+    urgent: bool | None = None
+    important: bool | None = None
     source: str | None = None
     source_link: str | None = None
     due_date: datetime.datetime | None = None
