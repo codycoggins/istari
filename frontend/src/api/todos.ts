@@ -8,3 +8,10 @@ export async function listTodos(): Promise<{ todos: Todo[] }> {
 export async function completeTodo(id: number): Promise<Todo> {
   return apiFetch(`/todos/${id}/complete`, { method: "POST" });
 }
+
+export async function reopenTodo(id: number): Promise<Todo> {
+  return apiFetch(`/todos/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "open" }),
+  });
+}

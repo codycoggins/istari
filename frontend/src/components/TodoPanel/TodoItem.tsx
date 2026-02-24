@@ -3,6 +3,7 @@ import type { Todo } from "../../types/todo";
 interface TodoItemProps {
   todo: Todo;
   onComplete: (id: number) => void;
+  onReopen: (id: number) => void;
 }
 
 function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
@@ -13,7 +14,7 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   return null;
 }
 
-export function TodoItem({ todo, onComplete }: TodoItemProps) {
+export function TodoItem({ todo, onComplete, onReopen }: TodoItemProps) {
   const isComplete = todo.status === "complete";
   const quadrant = getQuadrant(todo.urgent, todo.important);
 
@@ -33,9 +34,8 @@ export function TodoItem({ todo, onComplete }: TodoItemProps) {
       <input
         type="checkbox"
         checked={isComplete}
-        disabled={isComplete}
-        onChange={() => onComplete(todo.id)}
-        style={{ marginTop: "0.2rem", flexShrink: 0 }}
+        onChange={() => isComplete ? onReopen(todo.id) : onComplete(todo.id)}
+        style={{ marginTop: "0.2rem", flexShrink: 0, cursor: "pointer" }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div

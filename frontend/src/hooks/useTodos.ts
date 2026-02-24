@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Todo } from "../types/todo";
-import { listTodos, completeTodo as apiCompleteTodo } from "../api/todos";
+import { listTodos, completeTodo as apiCompleteTodo, reopenTodo as apiReopenTodo } from "../api/todos";
 
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -25,5 +25,13 @@ export function useTodos() {
     [refresh],
   );
 
-  return { todos, isLoading, refresh, completeTodo };
+  const reopenTodo = useCallback(
+    async (id: number) => {
+      await apiReopenTodo(id);
+      refresh();
+    },
+    [refresh],
+  );
+
+  return { todos, isLoading, refresh, completeTodo, reopenTodo };
 }

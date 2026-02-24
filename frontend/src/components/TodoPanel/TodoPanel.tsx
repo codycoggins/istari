@@ -12,6 +12,7 @@ interface TodoPanelProps {
   todos: Todo[];
   isLoading: boolean;
   onComplete: (id: number) => void;
+  onReopen: (id: number) => void;
   onAskPriorities?: () => void;
   settings?: Record<string, string>;
   onToggleFocusMode?: (enabled: boolean) => void;
@@ -21,6 +22,7 @@ export function TodoPanel({
   todos,
   isLoading,
   onComplete,
+  onReopen,
   onAskPriorities,
   settings,
   onToggleFocusMode,
@@ -53,7 +55,7 @@ export function TodoPanel({
         <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>
       )}
       {visibleTodos.map((todo) => (
-        <TodoItem key={todo.id} todo={todo} onComplete={onComplete} />
+        <TodoItem key={todo.id} todo={todo} onComplete={onComplete} onReopen={onReopen} />
       ))}
 
       {settings && (
