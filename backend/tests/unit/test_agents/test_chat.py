@@ -1,205 +1,182 @@
-"""Tests for chat agent — LLM-based intent classification and graph routing."""
+"""Tests for the ReAct chat agent loop (run_agent) — edge cases and wiring."""
 
-from unittest.mock import AsyncMock, patch
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-from tests.fixtures.llm_responses import mock_chat_response, mock_classification_response
+from istari.agents.chat import build_tools, run_agent
+from istari.agents.tools.base import AgentContext
 
-from istari.agents.chat import Intent, build_chat_graph
+# ── Mock response helpers ─────────────────────────────────────────────────────
 
 
-@pytest.fixture
-def _mock_classify():
-    """Fixture factory: patch LLM completion to return a given intent + content."""
+def _tool_response(tool_name: str, arguments: dict, call_id: str = "call_1"):
+    tc = MagicMock()
+    tc.id = call_id
+    tc.function.name = tool_name
+    tc.function.arguments = json.dumps(arguments)
+    msg = MagicMock()
+    msg.content = None
+    msg.tool_calls = [tc]
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+    return resp
 
-    def _make(intent: str, extracted_content: str = ""):
-        resp = mock_classification_response(intent, extracted_content)
-        return patch(
-            "istari.llm.router.completion",
-            new_callable=AsyncMock,
-            return_value=resp,
+
+def _text_response(content: str):
+    msg = MagicMock()
+    msg.content = content
+    msg.tool_calls = None
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+    return resp
+
+
+_LLM = "istari.llm.router.litellm.acompletion"
+
+
+# ── Max turns limit ───────────────────────────────────────────────────────────
+
+
+class TestMaxTurns:
+    async def test_max_turns_returns_fallback(self, db_session):
+        """If the LLM keeps calling tools without a final reply, we give up gracefully."""
+        from istari.agents.chat import _MAX_TURNS
+
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        # Always return a tool call — never a final text response
+        tool_resp = _tool_response("list_todos", {})
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = tool_resp
+            result = await run_agent("loop forever", [], tools, system_prompt="You are Istari.")
+
+        assert mock_llm.call_count == _MAX_TURNS
+        assert "wasn't able" in result.lower() or "rephrase" in result.lower()
+
+
+# ── Unknown tool ──────────────────────────────────────────────────────────────
+
+
+class TestUnknownTool:
+    async def test_unknown_tool_does_not_raise(self, db_session):
+        """If the LLM hallucinates a tool name, the loop recovers cleanly."""
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        bad_tool = _tool_response("nonexistent_tool_xyz", {"arg": "val"})
+        final = _text_response("Sorry, I couldn't do that.")
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = [bad_tool, final]
+            result = await run_agent("do something", [], tools, system_prompt="You are Istari.")
+
+        assert result == "Sorry, I couldn't do that."
+
+
+# ── Tool raises an exception ──────────────────────────────────────────────────
+
+
+class TestToolException:
+    async def test_tool_error_continues_loop(self, db_session):
+        """If a tool raises, the error is captured as a result and the loop continues."""
+        # Inject a tool that always raises
+        from istari.agents.tools.base import AgentTool
+
+        async def exploding_tool() -> str:
+            raise RuntimeError("tool exploded")
+
+        boom = AgentTool(
+            name="boom",
+            description="Always fails",
+            parameters={"type": "object", "properties": {}, "required": []},
+            fn=exploding_tool,
         )
 
-    return _make
+        tools = [boom]
+        call_resp = _tool_response("boom", {})
+        final = _text_response("I hit an error but recovered.")
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = [call_resp, final]
+            result = await run_agent("trigger boom", [], tools, system_prompt="You are Istari.")
+
+        assert result == "I hit an error but recovered."
 
 
-@pytest.fixture
-def graph():
-    return build_chat_graph()
+# ── History threading ─────────────────────────────────────────────────────────
 
 
-# --- TODO capture ---
+class TestHistory:
+    async def test_history_included_in_messages(self, db_session):
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        history = [
+            {"role": "user", "content": "Earlier question"},
+            {"role": "assistant", "content": "Earlier answer"},
+        ]
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = _text_response("Got it!")
+            await run_agent("Follow-up question", history, tools, system_prompt="You are Istari.")
+
+        messages = mock_llm.call_args.kwargs["messages"]
+        contents = [m["content"] for m in messages]
+        assert "Earlier question" in contents
+        assert "Earlier answer" in contents
+        assert "Follow-up question" in contents
+
+    async def test_system_prompt_is_first_message(self, db_session):
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = _text_response("Hi!")
+            await run_agent("Hello", [], tools, system_prompt="CUSTOM SOUL")
+
+        messages = mock_llm.call_args.kwargs["messages"]
+        assert messages[0]["role"] == "system"
+        assert "CUSTOM SOUL" in messages[0]["content"]
+
+    async def test_user_message_is_last(self, db_session):
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = _text_response("Hi!")
+            await run_agent("My question", [], tools, system_prompt="You are Istari.")
+
+        messages = mock_llm.call_args.kwargs["messages"]
+        last = messages[-1]
+        assert last["role"] == "user"
+        assert last["content"] == "My question"
 
 
-class TestTodoCapture:
-    async def test_todo_basic(self, graph, _mock_classify):
-        with _mock_classify("todo_capture", "Review the PR"):
-            result = await graph.ainvoke({"user_message": "TODO: review the PR"})
-        assert result["intent"] == Intent.TODO_CAPTURE.value
-        assert result["extracted_content"] == "Review the PR"
-        assert "Review the PR" in result["response"]
-
-    async def test_todo_normalization(self, graph, _mock_classify):
-        with _mock_classify("todo_capture", "Pay the condo fee"):
-            result = await graph.ainvoke(
-                {"user_message": "add a todo for taking care of the condo fee payment"}
-            )
-        assert result["intent"] == Intent.TODO_CAPTURE.value
-        assert result["extracted_content"] == "Pay the condo fee"
-
-    async def test_remind_me_to(self, graph, _mock_classify):
-        with _mock_classify("todo_capture", "Call the dentist"):
-            result = await graph.ainvoke({"user_message": "remind me to call the dentist"})
-        assert result["intent"] == Intent.TODO_CAPTURE.value
-        assert result["extracted_content"] == "Call the dentist"
-
-    async def test_need_to(self, graph, _mock_classify):
-        with _mock_classify("todo_capture", "Finish the slides"):
-            result = await graph.ainvoke({"user_message": "I need to finish the slides"})
-        assert result["intent"] == Intent.TODO_CAPTURE.value
-
-    async def test_dont_forget(self, graph, _mock_classify):
-        with _mock_classify("todo_capture", "Water the plants"):
-            result = await graph.ainvoke({"user_message": "don't forget to water the plants"})
-        assert result["intent"] == Intent.TODO_CAPTURE.value
+# ── build_tools wiring ────────────────────────────────────────────────────────
 
 
-# --- Memory write ---
+class TestBuildTools:
+    def test_expected_tools_present(self, db_session):
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+        names = {t.name for t in tools}
+        assert "create_todos" in names
+        assert "list_todos" in names
+        assert "update_todo_status" in names
+        assert "get_priorities" in names
+        assert "remember" in names
+        assert "search_memory" in names
+        assert "read_file" in names
+        assert "search_files" in names
 
-
-class TestMemoryWrite:
-    async def test_remember_that(self, graph, _mock_classify):
-        with _mock_classify("memory_write", "I prefer mornings"):
-            result = await graph.ainvoke(
-                {"user_message": "remember that I prefer mornings"}
-            )
-        assert result["intent"] == Intent.MEMORY_WRITE.value
-        assert result["extracted_content"] == "I prefer mornings"
-        assert "noted" in result["response"].lower() or "remember" in result["response"].lower()
-
-    async def test_note_that(self, graph, _mock_classify):
-        with _mock_classify("memory_write", "The deadline is Friday"):
-            result = await graph.ainvoke(
-                {"user_message": "note that the deadline is Friday"}
-            )
-        assert result["intent"] == Intent.MEMORY_WRITE.value
-
-    async def test_preference(self, graph, _mock_classify):
-        with _mock_classify("memory_write", "I prefer dark mode"):
-            result = await graph.ainvoke({"user_message": "I prefer dark mode"})
-        assert result["intent"] == Intent.MEMORY_WRITE.value
-
-    async def test_fyi(self, graph, _mock_classify):
-        with _mock_classify("memory_write", "The server IP changed to 10.0.0.1"):
-            result = await graph.ainvoke(
-                {"user_message": "FYI, the server IP changed to 10.0.0.1"}
-            )
-        assert result["intent"] == Intent.MEMORY_WRITE.value
-        assert "server IP" in result["extracted_content"]
-
-    async def test_keep_in_mind(self, graph, _mock_classify):
-        with _mock_classify("memory_write", "I'm off on Fridays"):
-            result = await graph.ainvoke(
-                {"user_message": "keep in mind that I'm off on Fridays"}
-            )
-        assert result["intent"] == Intent.MEMORY_WRITE.value
-        assert "off on Fridays" in result["extracted_content"]
-
-
-# --- Prioritize ---
-
-
-class TestPrioritize:
-    async def test_what_should_i_work_on(self, graph, _mock_classify):
-        with _mock_classify("prioritize"):
-            result = await graph.ainvoke({"user_message": "What should I work on?"})
-        assert result["intent"] == Intent.PRIORITIZE.value
-        assert result["response"] == "__PRIORITIZE__"
-
-    async def test_what_should_i_do(self, graph, _mock_classify):
-        with _mock_classify("prioritize"):
-            result = await graph.ainvoke({"user_message": "what should I do?"})
-        assert result["intent"] == Intent.PRIORITIZE.value
-
-    async def test_show_priorities(self, graph, _mock_classify):
-        with _mock_classify("prioritize"):
-            result = await graph.ainvoke({"user_message": "show my priorities"})
-        assert result["intent"] == Intent.PRIORITIZE.value
-
-    async def test_what_should_i_focus_on(self, graph, _mock_classify):
-        with _mock_classify("prioritize"):
-            result = await graph.ainvoke({"user_message": "what should I focus on?"})
-        assert result["intent"] == Intent.PRIORITIZE.value
-
-
-# --- General chat ---
-
-
-class TestChat:
-    async def test_greeting(self, graph, _mock_classify):
-        with _mock_classify("chat"):
-            result = await graph.ainvoke({"user_message": "Hello!"})
-        assert result["intent"] == Intent.CHAT.value
-        assert result["response"] == "__LLM_CALL__"
-
-    async def test_general_question(self, graph, _mock_classify):
-        with _mock_classify("chat"):
-            result = await graph.ainvoke(
-                {"user_message": "What is the capital of France?"}
-            )
-        assert result["intent"] == Intent.CHAT.value
-
-    async def test_general_conversation(self, graph, _mock_classify):
-        with _mock_classify("chat"):
-            result = await graph.ainvoke(
-                {"user_message": "Tell me about quantum computing"}
-            )
-        assert result["intent"] == Intent.CHAT.value
-
-
-# --- Sensitive content ---
-
-
-class TestSensitiveContent:
-    async def test_email_flagged_sensitive(self, graph, _mock_classify):
-        with _mock_classify("chat"):
-            result = await graph.ainvoke(
-                {"user_message": "email john@example.com about the meeting"}
-            )
-        assert result["is_sensitive"] is True
-
-
-# --- Error handling / fallbacks ---
-
-
-class TestClassifyFallbacks:
-    async def test_malformed_json_falls_back_to_chat(self, graph):
-        """If LLM returns non-JSON, fall back to chat intent."""
-        bad_resp = mock_chat_response("I think this is a todo about groceries")
-        with patch("istari.llm.router.completion", new_callable=AsyncMock, return_value=bad_resp):
-            result = await graph.ainvoke({"user_message": "buy milk maybe?"})
-        assert result["intent"] == Intent.CHAT.value
-        assert result["extracted_content"] == ""
-
-    async def test_invalid_intent_falls_back_to_chat(self, graph):
-        """If LLM returns an unknown intent, fall back to chat."""
-        bad_resp = mock_classification_response("unknown_intent", "something")
-        with patch("istari.llm.router.completion", new_callable=AsyncMock, return_value=bad_resp):
-            result = await graph.ainvoke({"user_message": "do something weird"})
-        assert result["intent"] == Intent.CHAT.value
-
-    async def test_llm_exception_falls_back_to_chat(self, graph):
-        """If the LLM call raises an exception, fall back to chat."""
-        with patch(
-            "istari.llm.router.completion",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("connection failed"),
-        ):
-            result = await graph.ainvoke({"user_message": "add a todo for groceries"})
-        assert result["intent"] == Intent.CHAT.value
-        assert result["extracted_content"] == ""
-
-    async def test_empty_message_falls_back_to_chat(self, graph, _mock_classify):
-        with _mock_classify("chat"):
-            result = await graph.ainvoke({"user_message": ""})
-        assert result["intent"] == Intent.CHAT.value
+    def test_no_duplicate_names(self, db_session):
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+        names = [t.name for t in tools]
+        assert len(names) == len(set(names))
