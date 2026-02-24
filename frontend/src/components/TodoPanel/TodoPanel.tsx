@@ -1,6 +1,13 @@
 import type { Todo } from "../../types/todo";
 import { TodoItem } from "./TodoItem";
 
+function isCompletedBeforeToday(todo: Todo): boolean {
+  if (todo.status !== "complete") return false;
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  return new Date(todo.updated_at) < midnight;
+}
+
 interface TodoPanelProps {
   todos: Todo[];
   isLoading: boolean;
@@ -21,6 +28,7 @@ export function TodoPanel({
   const focusMode = settings?.focus_mode === "true";
   const quietStart = settings?.quiet_hours_start ?? "21";
   const quietEnd = settings?.quiet_hours_end ?? "7";
+  const visibleTodos = todos.filter((t) => !isCompletedBeforeToday(t));
 
   return (
     <div style={{ padding: "1rem" }}>
@@ -41,10 +49,10 @@ export function TodoPanel({
         </button>
       </div>
       {isLoading && <p style={{ color: "#888", fontSize: "0.875rem" }}>Loading...</p>}
-      {!isLoading && todos.length === 0 && (
+      {!isLoading && visibleTodos.length === 0 && (
         <p style={{ color: "#888", fontSize: "0.875rem" }}>No TODOs yet</p>
       )}
-      {todos.map((todo) => (
+      {visibleTodos.map((todo) => (
         <TodoItem key={todo.id} todo={todo} onComplete={onComplete} />
       ))}
 
