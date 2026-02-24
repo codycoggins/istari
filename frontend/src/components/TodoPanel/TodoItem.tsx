@@ -47,7 +47,7 @@ export function TodoItem({ todo, onComplete, onReopen }: TodoItemProps) {
           {todo.title}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap", marginTop: quadrant || todo.priority != null || todo.status === "in_progress" || todo.status === "blocked" ? "0.2rem" : 0 }}>
-          {quadrant && (
+          {quadrant && !isComplete && (
             <span
               style={{
                 fontSize: "0.65rem",
