@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from istari.api.routes import chat, digests, memory, notifications, settings, todos
 from istari.config.settings import settings as app_settings
+from istari.tools.mcp.client import MCPManager, load_mcp_server_configs
 
 
 @asynccontextmanager
@@ -18,7 +19,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
         datefmt="%H:%M:%S",
     )
-    yield
+    configs = load_mcp_server_configs()
+    async with MCPManager(configs) as manager:
+        app.state.mcp_tools = await manager.get_agent_tools()
+        yield
 
 
 app = FastAPI(title="Istari", version="0.1.0", lifespan=lifespan)

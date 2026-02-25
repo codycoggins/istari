@@ -7,10 +7,11 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
 - **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE**
 - **Phase 4: Memory architecture COMPLETE** — 206 backend tests, ruff clean
-- **Phase 5: Eisenhower matrix COMPLETE** — 230 backend tests (all passing, no exclusions), ruff clean
+- **Phase 5: Eisenhower matrix COMPLETE**
+- **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 230 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- **All 240 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -36,12 +37,12 @@ See `istari-project-outline.md` for the full project specification.
   - **Worker jobs** — APScheduler with `gmail_digest` (8am + 2pm) and `staleness_check` (8am) from `schedules.yml`; quiet hours enforcement decorator
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
+  - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close
 - **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
 - **Next up:**
-  - MCP server integration via `langchain-mcp-adapters`
   - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
@@ -87,7 +88,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Why**: linear classify→act cannot do multi-step reasoning (e.g., read file → extract items → create todos); tool calling handles bulk ops, synonyms, pattern matching naturally
 - **Tool registration**: `@tool`-decorated async functions in `agents/tools/` — each group (todo, memory, gmail, calendar, filesystem) in its own module; agent built from a flat list of all tools
 - **DB injection**: tools need `AsyncSession`; session is provided via closure at WebSocket connect time (wrap tool functions with session before passing to agent)
-- **MCP path**: `langchain-mcp-adapters` converts MCP server tools → LangChain tools; add to agent registry without code changes
+- **MCP path**: `mcp` package (not LangChain) — `ClientSession` from `mcp`; `StdioServerParameters`+`stdio_client` from `mcp.client.stdio`; tools stored in `app.state.mcp_tools` at lifespan; accessed in routes via `getattr(ws.app.state, "mcp_tools", [])`
 - **Model requirement**: tool calling needs a capable model — `gpt-4o` for primary agent; local models for summarization/classification subtasks only
 - **Status synonyms**: normalize in tool layer before DB write — "done/finished/completed" → complete, "started/working on" → in_progress, "stuck/waiting" → blocked, "postpone/later/skip" → deferred
 - **Old `chat.py` agent**: replaced entirely; `proactive.py` (worker) is unaffected and stays as-is
@@ -117,7 +118,7 @@ See `istari-project-outline.md` for the full project specification.
 
 ## Key File Locations
 - Backend entry points: `backend/src/istari/api/main.py` (FastAPI app), `backend/src/istari/worker/main.py` (APScheduler)
-- Config: `backend/src/istari/config/settings.py`, `llm_routing.yml`, `schedules.yml`
+- Config: `backend/src/istari/config/settings.py`, `llm_routing.yml`, `schedules.yml`, `mcp_servers.yml` (MCP server list — add servers here with `enabled: true`)
 - Memory files (project root): `memory/SOUL.md` (agent personality), `memory/USER.md` (user profile — gitignored)
 - Models: `backend/src/istari/models/` — todo.py, memory.py, digest.py, notification.py, agent_run.py, user.py
 - DB session: `backend/src/istari/db/session.py`
@@ -130,6 +131,7 @@ See `istari-project-outline.md` for the full project specification.
   - `gmail/reader.py` — GmailReader (list_unread, search, get_thread) with OAuth2 token
   - `calendar/reader.py` — CalendarReader (Google, OAuth2); `apple_calendar/reader.py` — AppleCalendarReader (EventKit, no auth); `CalendarEvent` dataclass shared between both
   - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
+  - `mcp/client.py` — `MCPServerConfig`, `load_mcp_server_configs()`, `MCPManager` async context manager, `mcp_tool_to_agent_tool()`
 - Agents: `backend/src/istari/agents/` — chat.py (ReAct agent loop + `build_tools`/`run_agent`), tools/ (todo.py, memory.py, gmail.py, calendar.py, base.py), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, digests.py, memory.py, settings.py
@@ -145,7 +147,7 @@ See `istari-project-outline.md` for the full project specification.
   - `unit/test_classifier/` — rules + tool wrapper (23 tests)
   - `unit/test_llm/` — router + config (14 tests)
   - `unit/test_models/` — enum value + SQLAlchemy enum `values_callable` guard (2 tests)
-  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + CalendarReader + DigestManager (63 tests)
+  - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + CalendarReader + DigestManager + MCPClient (73 tests)
   - `unit/test_worker/` — worker job tests + quiet hours (5 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
 - Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`
@@ -189,3 +191,5 @@ See `istari-project-outline.md` for the full project specification.
 - **ConversationStore**: `tools/conversation/store.py`; `load_history()` returns last 40 turns oldest-first; `save_turn(user, assistant)` adds two rows and flushes; loaded once at WebSocket connect, saved after each response before `send_json`
 - **Memory extractor**: `agents/memory_extractor.py`; `extract_and_store(user_msg, asst_msg, session_factory)` — fire-and-forget; patches: `istari.agents.memory_extractor.completion` and `istari.agents.memory_extractor.MemoryStore` for tests; `# noqa: RUF006` on `asyncio.create_task()` call
 - **SOUL.md / USER.md editing**: users edit `memory/SOUL.md` (personality) and `memory/USER.md` (profile) directly; changes take effect on next message with no restart; USER.md gitignored; USER.md.example committed as a template
+- **Adding a new MCP server**: add an entry to `mcp_servers.yml` with `enabled: true` and required env vars; set the env var in `.env`; no code changes needed — tools auto-load at startup
+- **MCP tool tests**: patch `istari.tools.mcp.client.stdio_client` and `istari.tools.mcp.client.ClientSession` with `@asynccontextmanager` functions via `monkeypatch.setattr`; use `monkeypatch.setattr("istari.tools.mcp.client._CONFIG_DIR", tmp_path)` to redirect config loading in unit tests

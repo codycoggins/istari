@@ -80,21 +80,32 @@ async def build_system_prompt(
     return "\n\n---\n\n".join(parts)
 
 
-def build_tools(session: "AsyncSession", context: AgentContext) -> list[AgentTool]:
-    """Assemble all agent tools bound to this session."""
+def build_tools(
+    session: "AsyncSession",
+    context: AgentContext,
+    mcp_tools: list[AgentTool] | None = None,
+) -> list[AgentTool]:
+    """Assemble all agent tools bound to this session.
+
+    mcp_tools: optional list of tools loaded from external MCP servers at startup;
+    they are appended after the built-in tools so built-ins always take precedence.
+    """
     from istari.agents.tools.calendar import make_calendar_tools
     from istari.agents.tools.filesystem import make_filesystem_tools
     from istari.agents.tools.gmail import make_gmail_tools
     from istari.agents.tools.memory import make_memory_tools
     from istari.agents.tools.todo import make_todo_tools
 
-    return [
+    tools: list[AgentTool] = [
         *make_todo_tools(session, context),
         *make_memory_tools(session, context),
         *make_gmail_tools(),
         *make_calendar_tools(),
         *make_filesystem_tools(),
     ]
+    if mcp_tools:
+        tools.extend(mcp_tools)
+    return tools
 
 
 async def run_agent(

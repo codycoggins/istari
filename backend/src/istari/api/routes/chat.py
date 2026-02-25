@@ -37,9 +37,10 @@ async def chat_ws(ws: WebSocket) -> None:
                 continue
 
             context = AgentContext()
+            mcp_tools = getattr(ws.app.state, "mcp_tools", [])
 
             async with async_session_factory() as session:
-                tools = build_tools(session, context)
+                tools = build_tools(session, context, mcp_tools=mcp_tools)
                 system_prompt = await build_system_prompt(session, settings.user_name)
                 response_text = await run_agent(
                     user_message,

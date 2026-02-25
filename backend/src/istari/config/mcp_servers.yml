@@ -1,0 +1,11 @@
+# MCP server configuration — each server contributes tools to the ReAct agent.
+# Set enabled: true and provide required env vars to activate.
+servers:
+  - name: github
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-github"
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+    enabled: false
