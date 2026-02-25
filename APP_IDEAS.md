@@ -5,10 +5,9 @@ List maintained by Cody.  These are ideas that have not yet been designed or pla
 
 ## UI
 - Add a button by todos that says "context".  It should display relevant info for 
-- Add a favicon.ico - DONE
 - Allow TODOs to be tagged
-- Some of the UI doesn't have enough contrast.
 - Light and dark mode.
+- Sort TODOs by 
 
 ## Backend
 - When referring to emails or web pages or file system documents or calendar entries, include a hyperlink in the response. (note: right now when I ask for links it shows them in markdown format, which is a great start but the front end doesn't render markdown.)
@@ -43,3 +42,5 @@ Concept of "projects". TODOs and knowledge can be associated with projects.  Pro
 
 - Completed TODOs: display them crossed out until midnight. Don't display tasks completed before today.  Keep them in database for reference.
 - Display attributes with todos in a compact way (icons?) - in progress, trying eisenhour badges2
+- Add a favicon.ico - DONE
+- Some of the UI doesn't have enough contrast.
