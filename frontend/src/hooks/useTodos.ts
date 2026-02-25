@@ -21,6 +21,8 @@ export function useTodos() {
 
   useEffect(() => {
     refresh();
+    const id = setInterval(refresh, 15_000);
+    return () => clearInterval(id);
   }, [refresh]);
 
   const completeTodo = useCallback(

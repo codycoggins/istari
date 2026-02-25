@@ -36,12 +36,20 @@ class TodoManager:
         return list(result.scalars().all())
 
     async def list_visible(self) -> list[Todo]:
-        """Return all non-deferred TODOs: actionable first, then completed."""
+        """Return all non-deferred TODOs sorted by: complete last, quadrant, newest first."""
+        quadrant = case(
+            (and_(Todo.urgent == True, Todo.important == True), 1),  # noqa: E712
+            (Todo.important == True, 2),  # noqa: E712
+            (Todo.urgent == True, 3),  # noqa: E712
+            (and_(Todo.urgent.is_(None), Todo.important.is_(None)), 4),
+            else_=5,  # Q4: both false
+        )
         stmt = (
             select(Todo)
             .where(Todo.status.in_(self._VISIBLE))
             .order_by(
                 (Todo.status == TodoStatus.COMPLETE).asc(),
+                quadrant.asc(),
                 Todo.created_at.desc(),
             )
         )

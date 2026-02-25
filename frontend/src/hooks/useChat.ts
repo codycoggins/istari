@@ -38,7 +38,7 @@ export function useChat({ onTodoCreated, onMemoryCreated }: UseChatOptions = {})
       setMessages((prev) => [...prev, msg]);
       setIsLoading(false);
 
-      if (data.todo_created) {
+      if (data.todo_created || data.todo_updated) {
         callbacksRef.current.onTodoCreated?.();
       }
       if (data.memory_created) {

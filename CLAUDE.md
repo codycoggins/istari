@@ -22,7 +22,7 @@ See `istari-project-outline.md` for the full project specification.
   - Settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
   - **TODO tools** — `create_todos` (bulk; auto-classifies urgency/importance via LLM, asks user when uncertain), `list_todos` (filter: open/all/complete, shows quadrant labels), `update_todo_status` (by ID or ILIKE, bulk, synonym normalization), `update_todo_priority` (set urgent/important by ID or ILIKE), `get_priorities` (Q1→Q2→Q3→unclassified→Q4 sort + quadrant labels)
-  - **Eisenhower matrix** — `urgent` and `important` nullable Boolean columns on `Todo`; `get_prioritized()` uses SQLAlchemy `case()` for quadrant sort; `set_urgency_importance()` on TodoManager
+  - **Eisenhower matrix** — `urgent` and `important` nullable Boolean columns on `Todo`; `get_prioritized()` and `list_visible()` use SQLAlchemy `case()` for quadrant sort; `set_urgency_importance()` on TodoManager; frontend TODO sidebar shows color-coded Q1/Q2/Q3/Q4 badges (Do Now / Schedule / Delegate / Drop)
   - **Memory tools** — `remember`, `search_memory`
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
   - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
@@ -36,7 +36,7 @@ See `istari-project-outline.md` for the full project specification.
   - **Worker jobs** — APScheduler with `gmail_digest` (8am + 2pm) and `staleness_check` (8am) from `schedules.yml`; quiet hours enforcement decorator
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
-  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh, settings panel, notification inbox with unread badge, digest panel
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close
 - **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
@@ -46,7 +46,6 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
-  - Frontend: show Eisenhower quadrant badges on TODO sidebar items
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
