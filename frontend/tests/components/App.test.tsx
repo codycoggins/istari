@@ -34,19 +34,19 @@ describe("App", () => {
 
   it("renders the app layout", () => {
     render(<App />);
-    expect(screen.getByText("Istari")).toBeInTheDocument();
-    expect(screen.getByText("TODOs")).toBeInTheDocument();
+    expect(screen.getByText("ISTARI")).toBeInTheDocument();
+    expect(screen.getByText("Tasks")).toBeInTheDocument();
   });
 
-  it("'What should I work on?' button sends the message to chat", () => {
+  it("'Prioritize' button sends the priority question to chat", () => {
     render(<App />);
-    fireEvent.click(screen.getByText("What should I work on?"));
+    fireEvent.click(screen.getByText("Prioritize"));
     expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
   });
 
-  it("'What should I work on?' sends exactly the expected string", () => {
+  it("'Prioritize' sends exactly the expected string", () => {
     render(<App />);
-    fireEvent.click(screen.getByText("What should I work on?"));
+    fireEvent.click(screen.getByText("Prioritize"));
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
   });

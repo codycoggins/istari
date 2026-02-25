@@ -22,18 +22,18 @@
 
   /* Text */
   --text-primary:   #d9e8f5;
-  --text-secondary: #5f7d9b;
-  --text-muted:     #2e4560;
+  --text-secondary: #90b4cc;
+  --text-muted:     #7090b0;
 
   /* Brand accent — warm gold */
   --accent:     #c9a24a;
   --accent-dim: rgba(201, 162, 74, 0.12);
 
   /* Eisenhower quadrant colors */
-  --q1: #b84040;  --q1-bg: rgba(184,  64,  64, 0.14);
-  --q2: #3a68c0;  --q2-bg: rgba( 58, 104, 192, 0.14);
+  --q1: #e06868;  --q1-bg: rgba(224, 104, 104, 0.14);
+  --q2: #6090e0;  --q2-bg: rgba( 96, 144, 224, 0.14);
   --q3: #bf7a3b;  --q3-bg: rgba(191, 122,  59, 0.14);
-  --q4: #3d5168;  --q4-bg: rgba( 61,  81, 104, 0.14);
+  --q4: #8090a8;  --q4-bg: rgba(128, 144, 168, 0.14);
 
   /* Status */
   --success: #3d9e72;

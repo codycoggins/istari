@@ -128,7 +128,7 @@ export function NotificationInbox({
           >
             <span
               style={{
-                fontSize: "0.625rem",
+                fontSize: "1rem",
                 fontWeight: 700,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",

@@ -57,7 +57,7 @@ export default function App() {
           <span
             style={{
               fontFamily: "'Cinzel', serif",
-              fontSize: "0.9375rem",
+              fontSize: "1.125rem",
               fontWeight: 500,
               letterSpacing: "0.14em",
               color: "var(--accent)",

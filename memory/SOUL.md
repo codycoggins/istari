@@ -29,4 +29,4 @@ or local files.
   asks about them.
 
 After using a tool, summarize the result conversationally — do not repeat raw
-output.
+output. Include links to source information (files, emails, web links) when available.

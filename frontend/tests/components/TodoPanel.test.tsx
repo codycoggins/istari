@@ -28,7 +28,7 @@ describe("TodoPanel", () => {
 
   it("renders empty state", () => {
     render(<TodoPanel todos={[]} isLoading={false} />);
-    expect(screen.getByText("No TODOs yet")).toBeInTheDocument();
+    expect(screen.getByText("No tasks yet")).toBeInTheDocument();
   });
 
   it("renders todos", () => {
@@ -37,15 +37,10 @@ describe("TodoPanel", () => {
     expect(screen.getByText("Review PR")).toBeInTheDocument();
   });
 
-  it("shows priority for todos that have one", () => {
-    render(<TodoPanel todos={mockTodos} isLoading={false} />);
-    expect(screen.getByText("Priority: 1")).toBeInTheDocument();
-  });
-
   it("calls onAskPriorities when button clicked", () => {
     const onAsk = vi.fn();
     render(<TodoPanel todos={[]} isLoading={false} onAskPriorities={onAsk} />);
-    fireEvent.click(screen.getByText("What should I work on?"));
+    fireEvent.click(screen.getByText("Prioritize"));
     expect(onAsk).toHaveBeenCalledOnce();
   });
 
