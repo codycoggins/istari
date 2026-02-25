@@ -9,7 +9,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useTodos } from "./hooks/useTodos";
 
 export default function App() {
-  const { todos, isLoading, refresh, completeTodo, reopenTodo } = useTodos();
+  const { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo } = useTodos();
   const {
     notifications,
     unreadCount,
@@ -95,6 +95,7 @@ export default function App() {
             isLoading={isLoading}
             onComplete={completeTodo}
             onReopen={reopenTodo}
+            onSave={updateTodo}
             onAskPriorities={handleAskPriorities}
             settings={settings}
             onToggleFocusMode={handleToggleFocusMode}

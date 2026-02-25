@@ -1,9 +1,11 @@
+import { useState } from "react";
 import type { Todo } from "../../types/todo";
 
 interface TodoItemProps {
   todo: Todo;
   onComplete: (id: number) => void;
   onReopen: (id: number) => void;
+  onEdit: (todo: Todo) => void;
 }
 
 function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
@@ -18,7 +20,8 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   return null;
 }
 
-export function TodoItem({ todo, onComplete, onReopen }: TodoItemProps) {
+export function TodoItem({ todo, onComplete, onReopen, onEdit }: TodoItemProps) {
+  const [pencilHovered, setPencilHovered] = useState(false);
   const isComplete = todo.status === "complete";
   const quadrant = getQuadrant(todo.urgent, todo.important);
   const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked");
@@ -120,6 +123,42 @@ export function TodoItem({ todo, onComplete, onReopen }: TodoItemProps) {
           </div>
         )}
       </div>
+
+      {/* Pencil / edit button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit(todo);
+        }}
+        onMouseEnter={() => setPencilHovered(true)}
+        onMouseLeave={() => setPencilHovered(false)}
+        aria-label="Edit task"
+        style={{
+          background: "none",
+          border: "none",
+          padding: "0.1rem",
+          cursor: "pointer",
+          flexShrink: 0,
+          color: pencilHovered ? "var(--accent)" : "var(--text-muted)",
+          transition: "color 0.15s",
+          lineHeight: 1,
+          marginTop: "0.05rem",
+        }}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </button>
     </div>
   );
 }

@@ -7,8 +7,8 @@ export interface Todo {
   urgent?: boolean | null;
   important?: boolean | null;
   source?: string;
-  sourceLink?: string;
-  dueDate?: string;
+  source_link?: string;
+  due_date?: string;
   tags?: string[];
   created_at: string;
   updated_at: string;

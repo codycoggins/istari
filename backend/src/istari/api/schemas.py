@@ -14,10 +14,14 @@ class TodoCreate(BaseModel):
 class TodoUpdate(BaseModel):
     title: str | None = None
     body: str | None = None
+    status: str | None = None
     priority: int | None = None
+    urgent: bool | None = None
+    important: bool | None = None
+    source: str | None = None
+    source_link: str | None = None
     due_date: datetime.datetime | None = None
     tags: list[str] | None = None
-    status: str | None = None
 
 
 class TodoResponse(BaseModel):
