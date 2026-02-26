@@ -11,7 +11,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 240 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- **All 256 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -70,6 +70,8 @@ See `istari-project-outline.md` for the full project specification.
 - `./scripts/seed.sh` — seed dev data (placeholder)
 - `python scripts/setup_gmail.py` — OAuth2 Gmail setup (requires `credentials.json` from Google Cloud Console)
 - `python scripts/setup_calendar.py` — OAuth2 Calendar setup (reuses same `credentials.json`; writes separate `calendar_token.json`)
+- `cd backend && python -c "import asyncio; from istari.worker.jobs.backup import run_backup; asyncio.run(run_backup())"` — trigger a backup immediately (requires `BACKUP_ENABLED=true` and `BACKUP_PASSPHRASE` set in `.env`)
+- `./scripts/restore_db.sh <file.dump.enc>` — decrypt and restore a backup (prompts for passphrase)
 
 ## Architecture Decisions
 - **src-layout**: `backend/src/istari/` — Python package installed via `pip install -e .`, both api and worker import as `from istari.X import ...`
@@ -136,7 +138,7 @@ See `istari-project-outline.md` for the full project specification.
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, digests.py, memory.py, settings.py
 - API deps: `backend/src/istari/api/deps.py`
-- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py (implemented), staleness.py (implemented), learning.py (stub)
+- Worker jobs: `backend/src/istari/worker/jobs/` — gmail_digest.py, staleness.py, backup.py (implemented); learning.py (stub)
 - Frontend components: `frontend/src/components/Chat/`, `frontend/src/components/TodoPanel/`, `frontend/src/components/NotificationInbox/`, `frontend/src/components/DigestPanel/`
 - Frontend hooks: `frontend/src/hooks/useChat.ts` (WebSocket), `useTodos.ts`, `useSettings.ts`, `useNotifications.ts`, `useDigests.ts`
 - Frontend API client: `frontend/src/api/client.ts`, `todos.ts`, `settings.ts`, `notifications.ts`, `digests.ts`, `chat.ts`
@@ -150,7 +152,7 @@ See `istari-project-outline.md` for the full project specification.
   - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + CalendarReader + DigestManager + MCPClient (73 tests)
   - `unit/test_worker/` — worker job tests + quiet hours (5 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
-- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`
+- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`, `scripts/restore_db.sh`
 
 ## Patterns to Follow
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
@@ -193,3 +195,6 @@ See `istari-project-outline.md` for the full project specification.
 - **SOUL.md / USER.md editing**: users edit `memory/SOUL.md` (personality) and `memory/USER.md` (profile) directly; changes take effect on next message with no restart; USER.md gitignored; USER.md.example committed as a template
 - **Adding a new MCP server**: add an entry to `mcp_servers.yml` with `enabled: true` and required env vars; set the env var in `.env`; no code changes needed — tools auto-load at startup
 - **MCP tool tests**: patch `istari.tools.mcp.client.stdio_client` and `istari.tools.mcp.client.ClientSession` with `@asynccontextmanager` functions via `monkeypatch.setattr`; use `monkeypatch.setattr("istari.tools.mcp.client._CONFIG_DIR", tmp_path)` to redirect config loading in unit tests
+- **`docker exec` + pg_dump**: always pass `-U {username}` — without it pg_dump connects as the OS user (often `root`), which has no PostgreSQL role and fails. Pass the password via `docker exec -e PGPASSWORD container pg_dump -U user ...` where `PGPASSWORD` is set in the docker client's env; `-e PGPASSWORD` (no `=value`) forwards it into the container without exposing it in `ps aux`.
+- **Parsing DATABASE_URL**: use `urlparse(database_url.replace("+asyncpg", ""))` to extract username/password/dbname — strip the driver suffix first or urlparse won't parse the scheme correctly.
+- **Worker maintenance jobs skip `respect_quiet_hours`**: digest/staleness use the decorator because they're user-facing; backup does not — 2am is inside quiet hours (21:00–07:00) but maintenance must run regardless.

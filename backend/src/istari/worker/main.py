@@ -42,6 +42,7 @@ def main() -> None:
     logging.basicConfig(level=settings.log_level)
     logger.info("Starting Istari worker")
 
+    from istari.worker.jobs.backup import backup_sync
     from istari.worker.jobs.gmail_digest import gmail_digest_sync
     from istari.worker.jobs.staleness import staleness_sync
 
@@ -68,6 +69,13 @@ def main() -> None:
         respect_quiet_hours(staleness_sync),
         CronTrigger.from_crontab(staleness_cron),
         id="staleness_check",
+    )
+
+    backup_cron = schedules.get("backup_daily", {}).get("cron", "0 2 * * *")
+    scheduler.add_job(
+        backup_sync,
+        CronTrigger.from_crontab(backup_cron),
+        id="backup_daily",
     )
 
     logger.info(

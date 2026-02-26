@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     quiet_hours_end: int = 7
     stale_todo_days: int = 3
 
+    # Backup
+    backup_enabled: bool = False
+    backup_destination_type: str = "local"          # "local"; future: "s3"
+    backup_destination_path: str = ""               # required when enabled; set in .env
+    backup_passphrase: str = ""                     # required when enabled; set in .env
+    backup_retention_days: int = 7
+    backup_pg_container: str = "istari-postgres-1"  # empty = call pg_dump directly
+
     # Logging
     log_level: str = "INFO"
 

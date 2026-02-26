@@ -16,3 +16,7 @@ jobs:
   learning_update:
     cron: "0 3 * * *"
     description: Pattern learning update (overnight)
+
+  backup_daily:
+    cron: "0 2 * * *"
+    description: Encrypted pg_dump to backup destination (2am daily)
