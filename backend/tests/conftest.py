@@ -12,6 +12,22 @@ def anyio_backend():
     return "asyncio"
 
 
+@pytest.fixture(autouse=True)
+def mock_generate_embedding_global(monkeypatch):
+    """Prevent real Ollama calls in all unit tests.
+
+    MemoryStore.store() and search() degrade gracefully when embedding fails,
+    so stores write embedding=None and search() falls back to ILIKE.
+    Tests that need to assert embedding behaviour override this via their
+    own monkeypatch.setattr call.
+    """
+
+    async def _no_embed(text: str) -> list[float]:
+        raise RuntimeError("embedding mocked out in tests")
+
+    monkeypatch.setattr("istari.tools.memory.store.generate_embedding", _no_embed)
+
+
 @pytest.fixture
 async def db_session():
     """Async SQLite session for unit tests.

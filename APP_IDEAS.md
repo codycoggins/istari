@@ -7,7 +7,7 @@ List maintained by Cody.  These are ideas that have not yet been designed or pla
 - Add a button by todos that says "context".  It should display relevant info for 
 - Allow TODOs to be tagged
 - Light and dark mode.
-- Sort TODOs by 
+- Make the size of the right hand TASKS panel adjustable.  User can adjust by dragging the border. Make the default size wider than it is now.
 
 ## Backend
 - When referring to emails or web pages or file system documents or calendar entries, include a hyperlink in the response. (note: right now when I ask for links it shows them in markdown format, which is a great start but the front end doesn't render markdown.)
