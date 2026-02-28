@@ -4,13 +4,28 @@
 # Usage:
 #   ./scripts/restore_db.sh /path/to/istari_20250101T020000Z.dump.enc
 #
-# Reads the passphrase interactively (not echoed).
-# Set CONTAINER="" to use pg_restore directly with $DATABASE_URL instead.
+# Reads the backup passphrase interactively.
+# DB credentials are read from .env (POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB).
+# Set CONTAINER="" to restore directly via DATABASE_URL instead.
 
 set -euo pipefail
 
 BACKUP_FILE="${1:-}"
 CONTAINER="${CONTAINER:-istari-postgres-1}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+# Load DB credentials from .env
+DB_USER="istari"
+DB_NAME="istari"
+DB_PASSWORD=""
+if [[ -f "$ENV_FILE" ]]; then
+  DB_USER="$(grep '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || echo "istari")"
+  DB_PASSWORD="$(grep '^POSTGRES_PASSWORD=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || echo "")"
+  DB_NAME="$(grep '^POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || echo "istari")"
+fi
 
 if [[ -z "$BACKUP_FILE" ]]; then
   echo "Usage: $0 <backup-file.dump.enc>" >&2
@@ -29,7 +44,8 @@ echo "Decrypting and restoring from: $BACKUP_FILE"
 
 if [[ -n "$CONTAINER" ]]; then
   openssl enc -d -aes-256-cbc -pbkdf2 -pass "pass:$PASSPHRASE" -in "$BACKUP_FILE" \
-    | docker exec -i "$CONTAINER" pg_restore --clean --if-exists -d istari
+    | PGPASSWORD="$DB_PASSWORD" docker exec -e PGPASSWORD -i "$CONTAINER" \
+        pg_restore -U "$DB_USER" --clean --if-exists -d "$DB_NAME"
 else
   # Direct restore — requires pg_restore in PATH and DATABASE_URL set
   if [[ -z "${DATABASE_URL:-}" ]]; then
