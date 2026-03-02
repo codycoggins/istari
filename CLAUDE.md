@@ -47,6 +47,13 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
+- **Security hardening (Phase 7 — in order):**
+  1. **Docker networking** — remove `ports` from `postgres` and `api` services; add explicit internal/external networks so Postgres and raw FastAPI are never reachable from host or LAN
+  2. **Authentication** — password-based login (`POST /api/auth/login`) issuing a signed session token in an `HttpOnly; Secure; SameSite=Strict` cookie; middleware requires cookie on all routes except `/health` and `/api/auth/login`; WebSocket accepts token as `?token=` query param; `POST /api/auth/logout` clears cookie; single `APP_PASSWORD` + `APP_SECRET_KEY` in `.env`
+  3. **nginx security headers** — add `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Strict-Transport-Security` to the nginx config in `frontend/Dockerfile`
+  4. **Rate limiting on LLM endpoints** — per-connection message rate limit inside `chat_ws` handler; global REST rate limit via `slowapi`
+  5. **Audit credential files + fix default password** — move all credential/token files under `secrets/` (gitignored); replace `POSTGRES_PASSWORD:-changeme` fallback with a `?:` that fails loudly if unset; run `git ls-files | grep -E '\.(json|pem|key)$'` before open sourcing
+  6. **Ollama exposure audit** — verify Ollama binds to `127.0.0.1` not `0.0.0.0`; document `OLLAMA_HOST=127.0.0.1` in `.env.example`
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)

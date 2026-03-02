@@ -1,7 +1,17 @@
 # Dev overrides — use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# (or simply: ./scripts/dev.sh)
+#
+# Exposes postgres:5432 for PGAdmin and api:8000 for direct FastAPI access.
+# These ports are intentionally absent from docker-compose.yml (prod/ngrok).
 services:
+  postgres:
+    ports:
+      - "5432:5432"
+
   api:
     command: uvicorn istari.api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
     volumes:
       - ./backend/src:/app/src
     environment:
