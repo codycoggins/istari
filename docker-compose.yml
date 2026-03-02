@@ -23,6 +23,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-istari}
+      # host.docker.internal resolves to the Mac host — Ollama runs there, not in a container
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +44,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-istari}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
     depends_on:
       postgres:
         condition: service_healthy
