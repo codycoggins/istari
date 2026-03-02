@@ -22,18 +22,40 @@ See [istari-project-outline.md](istari-project-outline.md) for the full project 
 ```bash
 # 1. Set up environment
 cp .env.example .env
-# Edit .env — at minimum set OPENAI_API_KEY (required for the chat agent)
-# Optionally set OLLAMA_BASE_URL for local model routing
+# Edit .env — see Required Configuration below
 
 # 2. Start all services
-./scripts/dev.sh        # full stack with hot reload
-# or: docker compose up --build
+./scripts/dev.sh        # full stack with hot reload + debug ports open
+./scripts/prod.sh       # prod-like (no exposed Postgres/API ports)
 
 # 3. Access the UI
 open http://localhost:3000
 ```
 
 ## Required Configuration
+
+### Authentication (`.env`)
+
+Istari ships with optional password protection. Set both variables to enable it;
+leave them empty to run without auth (local dev only).
+
+```bash
+# Generate a signing key:
+APP_SECRET_KEY=$(openssl rand -hex 32)
+
+APP_PASSWORD=your-chosen-password
+
+# Set true when serving over HTTPS (ngrok, reverse proxy).
+# Leave false for plain http://localhost.
+COOKIE_SECURE=false
+```
+
+When `APP_SECRET_KEY` is set:
+- All API routes require a valid session cookie (except `/health` and the login endpoint)
+- The UI shows a password prompt on first load and after session expiry
+- Sessions are signed `HttpOnly; SameSite=Strict` cookies that expire after 30 days
+
+When `APP_SECRET_KEY` is **not** set the app runs open — suitable for local-only use without ngrok.
 
 ### LLM keys (`.env`)
 
