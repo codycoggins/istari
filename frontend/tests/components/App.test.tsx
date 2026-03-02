@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import App from "../../src/App";
 
@@ -18,6 +18,10 @@ import App from "../../src/App";
 
 const mockSendMessage = vi.fn();
 
+vi.mock("../../src/api/auth", () => ({
+  checkAuth: () => Promise.resolve(true),
+}));
+
 vi.mock("../../src/hooks/useChat", () => ({
   useChat: () => ({
     messages: [],
@@ -32,22 +36,24 @@ describe("App", () => {
     mockSendMessage.mockClear();
   });
 
-  it("renders the app layout", () => {
+  it("renders the app layout", async () => {
     render(<App />);
-    expect(screen.getByText("ISTARI")).toBeInTheDocument();
+    expect(await screen.findByText("ISTARI")).toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
   });
 
-  it("'Prioritize' button sends the priority question to chat", () => {
+  it("'Prioritize' button sends the priority question to chat", async () => {
     render(<App />);
-    fireEvent.click(screen.getByText("Prioritize"));
+    fireEvent.click(await screen.findByText("Prioritize"));
     expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
   });
 
-  it("'Prioritize' sends exactly the expected string", () => {
+  it("'Prioritize' sends exactly the expected string", async () => {
     render(<App />);
-    fireEvent.click(screen.getByText("Prioritize"));
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
+    fireEvent.click(await screen.findByText("Prioritize"));
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
+    });
   });
 });
