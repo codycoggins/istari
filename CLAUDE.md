@@ -50,7 +50,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Security hardening (Phase 7 — in progress):**
   1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
   2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset
-  3. **nginx security headers** — add `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Strict-Transport-Security` to the nginx config in `frontend/Dockerfile`
+  3. **nginx security headers** — COMPLETE: extracted to `frontend/nginx.conf`; `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, CSP whitelist; HSTS omitted (nginx can't detect HTTPS vs HTTP)
   4. **Rate limiting on LLM endpoints** — per-connection message rate limit inside `chat_ws` handler; global REST rate limit via `slowapi`
   5. **Audit credential files + fix default password** — move all credential/token files under `secrets/` (gitignored); replace `POSTGRES_PASSWORD:-changeme` fallback with a `?:` that fails loudly if unset; run `git ls-files | grep -E '\.(json|pem|key)$'` before open sourcing
   6. **Ollama exposure audit** — verify Ollama binds to `127.0.0.1` not `0.0.0.0`; document `OLLAMA_HOST=127.0.0.1` in `.env.example`
