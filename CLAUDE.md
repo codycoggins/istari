@@ -47,13 +47,13 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
-- **Security hardening (Phase 7 — in progress):**
+- **Security hardening (Phase 7 — COMPLETE):**
   1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
   2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset
   3. **nginx security headers** — COMPLETE: extracted to `frontend/nginx.conf`; `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, CSP whitelist; HSTS omitted (nginx can't detect HTTPS vs HTTP)
   4. **Rate limiting on LLM endpoints** — COMPLETE: per-connection sliding-window rate limiter (`_RateLimiter`, deque + `time.monotonic`); 20 msg/60s on WebSocket; REST endpoints skipped (not needed for local use)
   5. **Audit credential files + fix default password** — COMPLETE: `secrets/` directory (gitignored); `credentials.json`, `gmail_token.json`, `calendar_token.json` all moved under `secrets/`; `POSTGRES_PASSWORD:-changeme` replaced with `:?` fail-loud syntax in docker-compose.yml; setup scripts updated
-  6. **Ollama exposure audit** — verify Ollama binds to `127.0.0.1` not `0.0.0.0`; document `OLLAMA_HOST=127.0.0.1` in `.env.example`
+  6. **Ollama exposure audit** — COMPLETE: confirmed `127.0.0.1:11434` binding (not `0.0.0.0`); documented `OLLAMA_HOST=127.0.0.1` in README with shell profile and `launchctl` instructions; verify with `lsof -nP -iTCP:11434 -sTCP:LISTEN`
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)

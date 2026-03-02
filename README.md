@@ -66,6 +66,25 @@ When `APP_SECRET_KEY` is **not** set the app runs open — suitable for local-on
 | `ANTHROPIC_API_KEY` | Claude routing (if configured in `llm_routing.yml`) | Optional |
 | `GOOGLE_API_KEY` | Gemini routing | Optional |
 
+### Ollama binding (important if you use ngrok)
+
+Ollama's macOS app defaults to `0.0.0.0:11434` — reachable on your LAN and through ngrok.
+Lock it to localhost only by setting `OLLAMA_HOST` **before** starting Ollama:
+
+```bash
+# Add to your shell profile (~/.zshrc or ~/.zprofile) and restart Ollama
+export OLLAMA_HOST=127.0.0.1
+```
+
+Or set it in the macOS Ollama app's environment via `launchctl`:
+
+```bash
+launchctl setenv OLLAMA_HOST 127.0.0.1
+# Then restart Ollama from the menu bar
+```
+
+Verify with: `lsof -nP -iTCP:11434 -sTCP:LISTEN` — the address should show `127.0.0.1`, not `*`.
+
 ### Gmail & Calendar OAuth
 
 ```bash
