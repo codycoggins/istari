@@ -11,7 +11,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 256 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- **All 273 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -47,9 +47,9 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
-- **Security hardening (Phase 7 — in order):**
-  1. **Docker networking** — remove `ports` from `postgres` and `api` services; add explicit internal/external networks so Postgres and raw FastAPI are never reachable from host or LAN
-  2. **Authentication** — password-based login (`POST /api/auth/login`) issuing a signed session token in an `HttpOnly; Secure; SameSite=Strict` cookie; middleware requires cookie on all routes except `/health` and `/api/auth/login`; WebSocket accepts token as `?token=` query param; `POST /api/auth/logout` clears cookie; single `APP_PASSWORD` + `APP_SECRET_KEY` in `.env`
+- **Security hardening (Phase 7 — in progress):**
+  1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
+  2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset
   3. **nginx security headers** — add `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Strict-Transport-Security` to the nginx config in `frontend/Dockerfile`
   4. **Rate limiting on LLM endpoints** — per-connection message rate limit inside `chat_ws` handler; global REST rate limit via `slowapi`
   5. **Audit credential files + fix default password** — move all credential/token files under `secrets/` (gitignored); replace `POSTGRES_PASSWORD:-changeme` fallback with a `?:` that fails loudly if unset; run `git ls-files | grep -E '\.(json|pem|key)$'` before open sourcing
@@ -159,7 +159,8 @@ See `istari-project-outline.md` for the full project specification.
   - `unit/test_tools/` — TodoManager + MemoryStore + NotificationManager + GmailReader + CalendarReader + DigestManager + MCPClient (73 tests)
   - `unit/test_worker/` — worker job tests + quiet hours (5 tests)
   - `fixtures/llm_responses.py` — canned LiteLLM mock responses
-- Scripts: `scripts/dev.sh`, `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`, `scripts/restore_db.sh`
+- Auth: `backend/src/istari/api/auth.py` (token sign/verify), `api/middleware/auth.py` (ASGI middleware), `api/routes/auth.py` (login/logout/me); frontend: `frontend/src/api/auth.ts`, `frontend/src/components/Login/LoginPage.tsx`
+- Scripts: `scripts/dev.sh` (hot reload, debug ports open), `scripts/prod.sh` (no debug ports), `scripts/reset-db.sh`, `scripts/seed.sh`, `scripts/setup_gmail.py`, `scripts/setup_calendar.py`, `scripts/restore_db.sh`
 
 ## Patterns to Follow
 - **API routes**: use `DB = Annotated[AsyncSession, Depends(get_db)]` type alias, not inline `Depends()`
@@ -210,3 +211,8 @@ See `istari-project-outline.md` for the full project specification.
 - **nginx WebSocket proxying requires Upgrade headers**: without `proxy_set_header Upgrade $http_upgrade` and `proxy_set_header Connection "upgrade"`, nginx serves the SPA fallback (index.html, 200 + ~435 bytes) for WebSocket requests instead of proxying them — the telltale sign is `GET /api/chat/ws HTTP/1.1" 200 435` in nginx logs. Also set `proxy_read_timeout 86400` to prevent nginx closing idle WebSocket connections.
 - **`tsc -b` vs `tsc --noEmit` behave differently**: `npm run typecheck` uses `--noEmit` (lenient); Docker build uses `tsc -b` (project references, emits files, stricter). `allowImportingTsExtensions` is only valid with `noEmit`; Vitest config must live in a separate `vitest.config.ts` (importing from `vitest/config`) so `vite.config.ts` stays clean for `tsc -b`.
 - **Browser 304 cache can mask Docker proxy failures**: REST calls returning 304 may be served from browser cache even when nginx isn't proxying `/api` at all — WebSocket connections don't cache and reveal the true state. Hard-refresh (`Cmd+Shift+R`) after fixing nginx config.
+- **httpx.ASGITransport for FastAPI tests**: use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` — the old `httpx.AsyncClient(app=app)` positional form is deprecated; see `tests/unit/test_api/test_auth.py` as canonical example
+- **Pure ASGI middleware**: prefer `class MyMiddleware` with `async def __call__(self, scope, receive, send)` over `BaseHTTPMiddleware` — no response buffering, works correctly with WebSocket upgrades; check `scope["type"] == "websocket"` to pass WS through and let endpoint handle its own auth; parse cookies from headers with `SimpleCookie()` from `http.cookies`
+- **WebSocket close code 4401**: application-reserved codes 4000–4999 signal app-level errors; 4401 = auth failure — backend does `await ws.accept(); await ws.close(code=4401)`; frontend checks `event.code === 4401` in `ws.onclose` and calls `onAuthFailure` instead of triggering reconnect
+- **Auth enabled/disabled pattern**: `APP_SECRET_KEY` empty → middleware and `/me` pass everything through (dev convenience); set both `APP_SECRET_KEY` and `APP_PASSWORD` in `.env` to enforce auth; use `secrets.compare_digest` for constant-time password comparison; `response.delete_cookie` must pass the same `httponly`, `secure`, `samesite`, `path` kwargs as `set_cookie` or the browser won't honour the deletion
+- **`.env.example` is not readable via `Read` tool or `cat`**: permission denied by Claude Code settings; use `git diff HEAD .env.example` to inspect its contents
