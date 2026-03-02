@@ -73,6 +73,7 @@ See `istari-project-outline.md` for the full project specification.
 - `docker compose up --build` — run all services
 - `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build` — dev mode with hot reload
 - `./scripts/dev.sh` — start full stack in dev mode (copies .env.example if needed)
+- `./scripts/prod.sh` — start full stack in prod mode
 - `./scripts/reset-db.sh` — drop + recreate + migrate database
 - `./scripts/seed.sh` — seed dev data (placeholder)
 - `python scripts/setup_gmail.py` — OAuth2 Gmail setup (requires `credentials.json` from Google Cloud Console)
