@@ -4,7 +4,7 @@
 Prerequisites:
   1. Go to https://console.cloud.google.com/apis/credentials
   2. Create an OAuth 2.0 Client ID (Application type: Desktop app)
-  3. Download the JSON file and save it as `credentials.json` in the project root
+  3. Download the JSON file and save it as `secrets/credentials.json`
   4. Enable the Gmail API at https://console.cloud.google.com/apis/library/gmail.googleapis.com
   5. Run this script: python scripts/setup_gmail.py
 
@@ -15,20 +15,23 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
-TOKEN_PATH = PROJECT_ROOT / "gmail_token.json"
+SECRETS_DIR = PROJECT_ROOT / "secrets"
+CREDENTIALS_PATH = SECRETS_DIR / "credentials.json"
+TOKEN_PATH = SECRETS_DIR / "gmail_token.json"
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 
 def main() -> None:
+    SECRETS_DIR.mkdir(exist_ok=True)
+
     if not CREDENTIALS_PATH.exists():
         print(f"Error: {CREDENTIALS_PATH} not found.")
         print()
         print("To set up Gmail access:")
         print("  1. Go to https://console.cloud.google.com/apis/credentials")
         print("  2. Create an OAuth 2.0 Client ID (type: Desktop app)")
-        print("  3. Download the JSON and save it as credentials.json in the project root")
+        print("  3. Download the JSON and save it as secrets/credentials.json")
         print("  4. Enable the Gmail API at:")
         print("     https://console.cloud.google.com/apis/library/gmail.googleapis.com")
         print("  5. Re-run this script")

@@ -40,8 +40,8 @@ See `istari-project-outline.md` for the full project specification.
   - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close
 - **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
-- **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in project root (Google Cloud OAuth Desktop App)
-- **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `credentials.json`, writes `calendar_token.json`
+- **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in `secrets/` (Google Cloud OAuth Desktop App) — writes `secrets/gmail_token.json`
+- **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `secrets/credentials.json`, writes `secrets/calendar_token.json`
 - **Next up:**
   - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
@@ -51,8 +51,8 @@ See `istari-project-outline.md` for the full project specification.
   1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
   2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset
   3. **nginx security headers** — COMPLETE: extracted to `frontend/nginx.conf`; `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, CSP whitelist; HSTS omitted (nginx can't detect HTTPS vs HTTP)
-  4. **Rate limiting on LLM endpoints** — per-connection message rate limit inside `chat_ws` handler; global REST rate limit via `slowapi`
-  5. **Audit credential files + fix default password** — move all credential/token files under `secrets/` (gitignored); replace `POSTGRES_PASSWORD:-changeme` fallback with a `?:` that fails loudly if unset; run `git ls-files | grep -E '\.(json|pem|key)$'` before open sourcing
+  4. **Rate limiting on LLM endpoints** — COMPLETE: per-connection sliding-window rate limiter (`_RateLimiter`, deque + `time.monotonic`); 20 msg/60s on WebSocket; REST endpoints skipped (not needed for local use)
+  5. **Audit credential files + fix default password** — COMPLETE: `secrets/` directory (gitignored); `credentials.json`, `gmail_token.json`, `calendar_token.json` all moved under `secrets/`; `POSTGRES_PASSWORD:-changeme` replaced with `:?` fail-loud syntax in docker-compose.yml; setup scripts updated
   6. **Ollama exposure audit** — verify Ollama binds to `127.0.0.1` not `0.0.0.0`; document `OLLAMA_HOST=127.0.0.1` in `.env.example`
 
 ## Development Commands

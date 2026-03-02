@@ -41,9 +41,9 @@ class Settings(BaseSettings):
     # Gmail OAuth
     google_client_id: str = ""
     google_client_secret: str = ""
-    gmail_token_path: str = "gmail_token.json"
+    gmail_token_path: str = "secrets/gmail_token.json"
     gmail_max_results: int = 20
-    calendar_token_path: str = "calendar_token.json"
+    calendar_token_path: str = "secrets/calendar_token.json"
     calendar_max_results: int = 10
     # "google" uses OAuth CalendarReader; "apple" uses EventKit (macOS only)
     calendar_backend: str = "google"

@@ -69,9 +69,9 @@ When `APP_SECRET_KEY` is **not** set the app runs open — suitable for local-on
 ### Gmail & Calendar OAuth
 
 ```bash
-# Place credentials.json from Google Cloud Console (OAuth Desktop App) in project root
-python scripts/setup_gmail.py     # writes gmail_token.json
-python scripts/setup_calendar.py  # writes calendar_token.json
+# Place credentials.json from Google Cloud Console (OAuth Desktop App) in secrets/
+python scripts/setup_gmail.py     # writes secrets/gmail_token.json
+python scripts/setup_calendar.py  # writes secrets/calendar_token.json
 ```
 
 Set `CALENDAR_BACKEND=google` in `.env` (default). Apple Calendar is implemented but blocked by MDM on managed Macs.

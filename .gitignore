@@ -49,14 +49,14 @@ docker-compose.override.yml
 # Alembic
 backend/migrations/versions/*.pyc
 
-# Secrets / credentials
+# Secrets / credentials — catch-all for key/cert files anywhere in the tree
 *.pem
 *.key
-credentials.json
-token.json
-gmail_token.json
-calendar_token.json
-google_client_secret*.json
+
+# Secrets directory — all contents ignored except the placeholder
+# credentials.json, *_token.json etc. must all live here, not in project root
+secrets/*
+!secrets/.gitkeep
 
 # Personal memory files (user-owned, not checked in by default)
 memory/USER.md

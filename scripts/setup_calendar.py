@@ -4,8 +4,8 @@
 Prerequisites:
   1. Go to https://console.cloud.google.com/apis/credentials
   2. Create an OAuth 2.0 Client ID (Application type: Desktop app)
-     (You can reuse the same credentials.json as Gmail setup)
-  3. Download the JSON file and save it as `credentials.json` in the project root
+     (You can reuse the same secrets/credentials.json as Gmail setup)
+  3. Download the JSON file and save it as `secrets/credentials.json`
   4. Enable the Google Calendar API at:
      https://console.cloud.google.com/apis/library/calendar-json.googleapis.com
   5. Run this script: python scripts/setup_calendar.py
@@ -17,21 +17,24 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
-TOKEN_PATH = PROJECT_ROOT / "calendar_token.json"
+SECRETS_DIR = PROJECT_ROOT / "secrets"
+CREDENTIALS_PATH = SECRETS_DIR / "credentials.json"
+TOKEN_PATH = SECRETS_DIR / "calendar_token.json"
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 
 def main() -> None:
+    SECRETS_DIR.mkdir(exist_ok=True)
+
     if not CREDENTIALS_PATH.exists():
         print(f"Error: {CREDENTIALS_PATH} not found.")
         print()
         print("To set up Calendar access:")
         print("  1. Go to https://console.cloud.google.com/apis/credentials")
         print("  2. Create an OAuth 2.0 Client ID (type: Desktop app)")
-        print("     (You can reuse the same credentials.json as Gmail setup)")
-        print("  3. Download the JSON and save it as credentials.json in the project root")
+        print("     (You can reuse the same secrets/credentials.json as Gmail setup)")
+        print("  3. Download the JSON and save it as secrets/credentials.json")
         print("  4. Enable the Google Calendar API at:")
         print("     https://console.cloud.google.com/apis/library/calendar-json.googleapis.com")
         print("  5. Re-run this script")
