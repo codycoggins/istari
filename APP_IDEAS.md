@@ -20,10 +20,12 @@ Ideas that have not yet been designed or planned.
 
 - Google Drive (use same google auth approach
 - Jira - atlassian acli command line https://developer.atlassian.com/cloud/acli/guides/install-macos/
-- Obsidian?  (it is duplicative of file system)
+- Obsidian?  (it is duplicative of file system) - see obsidian CLI, new
 
 ## Mobile
 - Add a messaging app so I can reach Istari on mobile.
+- Or use ngrok to create a secure mobile website
+- Add caffeinate -dims to keep mac awake
 
 ## Data Model
 
