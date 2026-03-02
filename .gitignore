@@ -35,6 +35,9 @@ Thumbs.db
 node_modules/
 frontend/dist/
 frontend/build/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Test / Coverage
 .coverage
