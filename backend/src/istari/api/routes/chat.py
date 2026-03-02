@@ -9,6 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from istari.agents.chat import build_system_prompt, build_tools, run_agent
 from istari.agents.memory_extractor import extract_and_store
 from istari.agents.tools.base import AgentContext
+from istari.api.auth import COOKIE_NAME, verify_token
 from istari.config.settings import settings
 from istari.db.session import async_session_factory
 from istari.tools.conversation.store import ConversationStore
@@ -23,6 +24,15 @@ async def get_conversations() -> dict[str, list[object]]:
 
 @router.websocket("/ws")
 async def chat_ws(ws: WebSocket) -> None:
+    # Authenticate via session cookie before accepting the connection.
+    # Close code 4401 signals the frontend to show the login screen.
+    if settings.app_secret_key:
+        token = ws.cookies.get(COOKIE_NAME, "")
+        if not verify_token(token, settings.app_secret_key):
+            await ws.accept()
+            await ws.close(code=4401)
+            return
+
     await ws.accept()
 
     # Load history once at connection time

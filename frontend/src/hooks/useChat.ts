@@ -4,17 +4,18 @@ import type { Message } from "../types/message";
 interface UseChatOptions {
   onTodoCreated?: () => void;
   onMemoryCreated?: () => void;
+  onAuthFailure?: () => void;
 }
 
-export function useChat({ onTodoCreated, onMemoryCreated }: UseChatOptions = {}) {
+export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseChatOptions = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef(0);
-  const callbacksRef = useRef({ onTodoCreated, onMemoryCreated });
-  callbacksRef.current = { onTodoCreated, onMemoryCreated };
+  const callbacksRef = useRef({ onTodoCreated, onMemoryCreated, onAuthFailure });
+  callbacksRef.current = { onTodoCreated, onMemoryCreated, onAuthFailure };
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -46,9 +47,14 @@ export function useChat({ onTodoCreated, onMemoryCreated }: UseChatOptions = {})
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       setIsConnected(false);
       wsRef.current = null;
+      // 4401 = server rejected connection due to expired/missing session
+      if (event.code === 4401) {
+        callbacksRef.current.onAuthFailure?.();
+        return;
+      }
       // Reconnect with exponential backoff
       const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
       reconnectAttemptsRef.current += 1;

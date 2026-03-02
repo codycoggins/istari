@@ -7,7 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from istari.api.routes import chat, digests, memory, notifications, settings, todos
+from istari.api.middleware.auth import AuthMiddleware
+from istari.api.routes import auth, chat, digests, memory, notifications, settings, todos
 from istari.config.settings import settings as app_settings
 from istari.tools.mcp.client import MCPManager, load_mcp_server_configs
 
@@ -27,6 +28,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="Istari", version="0.1.0", lifespan=lifespan)
 
+# Auth middleware must be added first (outermost layer) so it runs before CORS
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=app_settings.cors_origin_list,
@@ -35,6 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(todos.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")

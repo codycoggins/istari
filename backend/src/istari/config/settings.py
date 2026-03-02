@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     backup_retention_days: int = 7
     backup_pg_container: str = "istari-postgres-1"  # empty = call pg_dump directly
 
+    # Auth — set both to enable password protection; leave empty to disable (local dev)
+    app_secret_key: str = ""   # HMAC signing key; generate with: openssl rand -hex 32
+    app_password: str = ""     # login password
+    cookie_secure: bool = False  # set True when serving over HTTPS (ngrok, prod)
+
     # Logging
     log_level: str = "INFO"
 

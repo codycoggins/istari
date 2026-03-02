@@ -6,11 +6,13 @@ import { ChatInput } from "./ChatInput";
 interface ChatPanelProps {
   onTodoCreated?: () => void;
   onRegisterSend?: (fn: (msg: string) => void) => void;
+  onAuthFailure?: () => void;
 }
 
-export function ChatPanel({ onTodoCreated, onRegisterSend }: ChatPanelProps) {
+export function ChatPanel({ onTodoCreated, onRegisterSend, onAuthFailure }: ChatPanelProps) {
   const { messages, isLoading, isConnected, sendMessage } = useChat({
     onTodoCreated,
+    onAuthFailure,
   });
 
   useEffect(() => {

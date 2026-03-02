@@ -1,6 +1,8 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { checkAuth } from "./api/auth";
 import { ChatPanel } from "./components/Chat/ChatPanel";
 import { DigestPanel } from "./components/DigestPanel/DigestPanel";
+import { LoginPage } from "./components/Login/LoginPage";
 import { NotificationInbox } from "./components/NotificationInbox/NotificationInbox";
 import { TodoPanel } from "./components/TodoPanel/TodoPanel";
 import { useDigests } from "./hooks/useDigests";
@@ -9,6 +11,13 @@ import { useSettings } from "./hooks/useSettings";
 import { useTodos } from "./hooks/useTodos";
 
 export default function App() {
+  // null = still checking, false = not authenticated, true = authenticated
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkAuth().then(setIsAuthenticated);
+  }, []);
+
   const { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo } = useTodos();
   const {
     notifications,
@@ -36,6 +45,29 @@ export default function App() {
     },
     [updateSetting],
   );
+
+  if (isAuthenticated === null) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          background: "var(--bg-base)",
+          color: "var(--text-muted)",
+          fontFamily: "'Cinzel', serif",
+          letterSpacing: "0.12em",
+        }}
+      >
+        ✦
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div className="app-layout">
@@ -82,6 +114,7 @@ export default function App() {
             onRegisterSend={(fn) => {
               chatSendRef.current = fn;
             }}
+            onAuthFailure={() => setIsAuthenticated(false)}
           />
         </main>
         <aside className="todo-sidebar">
