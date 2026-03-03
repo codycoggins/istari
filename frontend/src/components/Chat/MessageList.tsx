@@ -1,9 +1,201 @@
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import type { Message } from "../../types/message";
 
 interface MessageListProps {
   messages: Message[];
 }
+
+const markdownComponents: Components = {
+  code({ className, children, ...props }) {
+    const isBlock = className?.startsWith("language-");
+    if (isBlock) {
+      return (
+        <code
+          className={className}
+          style={{
+            display: "block",
+            fontFamily: "'DM Mono', 'Fira Code', 'Cascadia Code', monospace",
+            fontSize: "0.8125rem",
+            color: "var(--text-primary)",
+          }}
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code
+        style={{
+          fontFamily: "'DM Mono', 'Fira Code', 'Cascadia Code', monospace",
+          fontSize: "0.8125rem",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+          borderRadius: "4px",
+          padding: "0.1em 0.35em",
+          color: "var(--accent)",
+        }}
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  },
+  pre({ children, ...props }) {
+    return (
+      <pre
+        style={{
+          background: "var(--bg-input)",
+          border: "1px solid var(--border-default)",
+          borderLeft: "3px solid var(--border-accent)",
+          borderRadius: "6px",
+          padding: "0.75rem 1rem",
+          overflowX: "auto",
+          margin: "0.5rem 0",
+        }}
+        {...props}
+      >
+        {children}
+      </pre>
+    );
+  },
+  a({ href, children, ...props }) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "var(--accent)", textDecoration: "underline" }}
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  },
+  strong({ children, ...props }) {
+    return (
+      <strong style={{ color: "var(--text-primary)", fontWeight: 600 }} {...props}>
+        {children}
+      </strong>
+    );
+  },
+  em({ children, ...props }) {
+    return (
+      <em style={{ color: "var(--text-secondary)", fontStyle: "italic" }} {...props}>
+        {children}
+      </em>
+    );
+  },
+  h1({ children, ...props }) {
+    return (
+      <h1
+        style={{
+          fontSize: "1.05rem",
+          fontWeight: 600,
+          color: "var(--accent)",
+          margin: "0.75rem 0 0.35rem",
+          lineHeight: 1.3,
+        }}
+        {...props}
+      >
+        {children}
+      </h1>
+    );
+  },
+  h2({ children, ...props }) {
+    return (
+      <h2
+        style={{
+          fontSize: "0.975rem",
+          fontWeight: 600,
+          color: "var(--text-primary)",
+          margin: "0.65rem 0 0.3rem",
+          lineHeight: 1.3,
+        }}
+        {...props}
+      >
+        {children}
+      </h2>
+    );
+  },
+  h3({ children, ...props }) {
+    return (
+      <h3
+        style={{
+          fontSize: "0.9rem",
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+          margin: "0.5rem 0 0.25rem",
+          lineHeight: 1.3,
+        }}
+        {...props}
+      >
+        {children}
+      </h3>
+    );
+  },
+  ul({ children, ...props }) {
+    return (
+      <ul
+        style={{ margin: "0.4rem 0", paddingLeft: "1.4rem", lineHeight: 1.65 }}
+        {...props}
+      >
+        {children}
+      </ul>
+    );
+  },
+  ol({ children, ...props }) {
+    return (
+      <ol
+        style={{ margin: "0.4rem 0", paddingLeft: "1.4rem", lineHeight: 1.65 }}
+        {...props}
+      >
+        {children}
+      </ol>
+    );
+  },
+  li({ children, ...props }) {
+    return (
+      <li style={{ marginBottom: "0.15rem" }} {...props}>
+        {children}
+      </li>
+    );
+  },
+  blockquote({ children, ...props }) {
+    return (
+      <blockquote
+        style={{
+          borderLeft: "3px solid var(--accent)",
+          paddingLeft: "0.75rem",
+          margin: "0.5rem 0",
+          color: "var(--text-secondary)",
+          fontStyle: "italic",
+        }}
+        {...props}
+      >
+        {children}
+      </blockquote>
+    );
+  },
+  p({ children, ...props }) {
+    return (
+      <p style={{ margin: "0.3rem 0" }} {...props}>
+        {children}
+      </p>
+    );
+  },
+  hr(props) {
+    return (
+      <hr
+        style={{ border: "none", borderTop: "1px solid var(--border-default)", margin: "0.75rem 0" }}
+        {...props}
+      />
+    );
+  },
+};
 
 export function MessageList({ messages }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -88,11 +280,22 @@ export function MessageList({ messages }: MessageListProps) {
               fontSize: "0.875rem",
               lineHeight: 1.6,
               color: "var(--text-primary)",
-              whiteSpace: "pre-wrap",
+              whiteSpace: msg.role === "user" ? "pre-wrap" : undefined,
               wordBreak: "break-word",
             }}
           >
-            {msg.content}
+            {msg.role === "assistant" ? (
+              <div className="markdown-body">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              msg.content
+            )}
           </div>
         </div>
       ))}

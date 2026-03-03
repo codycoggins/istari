@@ -96,6 +96,42 @@
   50%       { opacity: 0.4; transform: scale(0.8); }
 }
 
+/* ── Markdown body ──────────────────────────────────── */
+.markdown-body {
+  /* Reset first/last child margins so bubble padding controls spacing */
+  line-height: 1.6;
+}
+.markdown-body > *:first-child { margin-top: 0 !important; }
+.markdown-body > *:last-child  { margin-bottom: 0 !important; }
+
+/* Table styles (GFM) */
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.8125rem;
+}
+.markdown-body th,
+.markdown-body td {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border-default);
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--bg-elevated);
+  color: var(--accent);
+  font-weight: 600;
+}
+.markdown-body tr:nth-child(even) td {
+  background: var(--bg-elevated);
+}
+
+/* Strikethrough (GFM) */
+.markdown-body del {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
   .app-body     { flex-direction: column; }

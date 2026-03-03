@@ -14,7 +14,9 @@ def make_gmail_tools() -> list[AgentTool]:
         from istari.config.settings import settings
         from istari.tools.gmail.reader import GmailReader
 
-        logger.info("check_email | token=%s query=%r", settings.gmail_token_path, query or "<unread>")
+        logger.info(
+            "check_email | token=%s query=%r", settings.gmail_token_path, query or "<unread>"
+        )
         try:
             reader = GmailReader(settings.gmail_token_path)
             if query:

@@ -11,7 +11,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 273 tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- **All 283 backend + 13 frontend tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -38,10 +38,11 @@ See `istari-project-outline.md` for the full project specification.
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
   - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
-  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close; **markdown rendering** in assistant messages via `react-markdown` + `remark-gfm` (headers, bold, code blocks, lists, tables, blockquotes); user messages stay plain text
 - **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in `secrets/` (Google Cloud OAuth Desktop App) — writes `secrets/gmail_token.json`
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `secrets/credentials.json`, writes `secrets/calendar_token.json`
+- **Custom slash commands:** `.claude/commands/test.md` → `/test` runs full CI suite (ruff, mypy, pytest, eslint, tsc, vitest) with a pass/fail summary table
 - **Next up:**
   - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
