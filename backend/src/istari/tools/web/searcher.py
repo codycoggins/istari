@@ -20,12 +20,12 @@ async def search(query: str, max_results: int = 5) -> list[SearchResult]:
 
 
 def _search_sync(query: str, max_results: int) -> list[SearchResult]:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 
     logger.info("WebSearcher: query=%r max_results=%d", query, max_results)
     results: list[SearchResult] = []
     with DDGS() as ddgs:
-        for r in ddgs.text(query, max_results=max_results):
+        for r in ddgs.text(query, max_results=max_results, backend="auto"):
             results.append(
                 SearchResult(
                     title=r.get("title", ""),
