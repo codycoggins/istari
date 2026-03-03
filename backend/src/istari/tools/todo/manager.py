@@ -86,7 +86,9 @@ class TodoManager:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_prioritized(self, limit: int = 3) -> list[Todo]:
+    async def get_prioritized(
+        self, limit: int = 3, exclude_ids: list[int] | None = None
+    ) -> list[Todo]:
         """Return top TODOs: Q1 (urgent+important) → Q2 → Q3 → unclassified → Q4."""
         quadrant = case(
             (and_(Todo.urgent == True, Todo.important == True), 1),   # noqa: E712
@@ -95,9 +97,12 @@ class TodoManager:
             (and_(Todo.urgent.is_(None), Todo.important.is_(None)), 4),
             else_=5,  # Q4: both false
         )
+        filters = [Todo.status.in_((TodoStatus.OPEN, TodoStatus.IN_PROGRESS))]
+        if exclude_ids:
+            filters.append(Todo.id.not_in(exclude_ids))
         stmt = (
             select(Todo)
-            .where(Todo.status.in_((TodoStatus.OPEN, TodoStatus.IN_PROGRESS)))
+            .where(*filters)
             .order_by(
                 quadrant.asc(),
                 Todo.priority.asc().nulls_last(),

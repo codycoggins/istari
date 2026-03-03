@@ -265,15 +265,23 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
 
     async def get_priorities() -> str:
         mgr = TodoManager(session)
-        todos = await mgr.get_prioritized(limit=3)
-        if not todos:
+        today_todos = await mgr.list_today()
+        selected = today_todos[:3]
+        if len(selected) < 3:
+            exclude = [t.id for t in selected]
+            needed = 3 - len(selected)
+            extra = await mgr.get_prioritized(limit=needed, exclude_ids=exclude)
+            selected = selected + extra
+        if not selected:
             return "No active TODOs right now."
         lines = ["Here's what I'd focus on:"]
-        for i, t in enumerate(todos, 1):
+        today_ids = {t.id for t in today_todos}
+        for i, t in enumerate(selected, 1):
             quadrant = _QUADRANT_LABELS.get((t.urgent, t.important), "")
             quad_tag = f" [{quadrant}]" if quadrant else ""
             priority_tag = f" (priority {t.priority})" if t.priority is not None else ""
-            lines.append(f"{i}. {t.title}{quad_tag}{priority_tag}")
+            today_tag = " ★ Today" if t.id in today_ids else ""
+            lines.append(f"{i}. {t.title}{quad_tag}{priority_tag}{today_tag}")
         return "\n".join(lines)
 
     return [
