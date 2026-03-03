@@ -507,6 +507,21 @@ export function TodoPanel({
             No tasks yet
           </p>
         )}
+        {!isLoading && todayTodos.length > 0 && remainingTodos.length > 0 && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <span
+              style={{
+                fontSize: "0.625rem",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--text-muted)",
+              }}
+            >
+              Other Goals
+            </span>
+          </div>
+        )}
         {remainingTodos.map((todo) => (
           <TodoItem
             key={todo.id}

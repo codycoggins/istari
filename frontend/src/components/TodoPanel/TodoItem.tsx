@@ -15,7 +15,7 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   if (important === true)
     return { label: "Schedule", color: "var(--q2)", bg: "var(--q2-bg)" };
   if (urgent === true)
-    return { label: "Delegate", color: "var(--q3)", bg: "var(--q3-bg)" };
+    return { label: "Contain", color: "var(--q3)", bg: "var(--q3-bg)" };
   if (urgent === false && important === false)
     return { label: "Drop", color: "var(--q4)", bg: "var(--q4-bg)" };
   return null;

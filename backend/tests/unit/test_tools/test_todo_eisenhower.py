@@ -66,7 +66,7 @@ class TestEisenhowerSorting:
 
     async def test_q2_before_q3(self, db_session):
         mgr = TodoManager(db_session)
-        q3 = await mgr.create("Delegate me", urgent=True, important=False)
+        q3 = await mgr.create("Contain me", urgent=True, important=False)
         q2 = await mgr.create("Important not urgent", urgent=False, important=True)
         await db_session.flush()
         prioritized = await mgr.get_prioritized(limit=2)

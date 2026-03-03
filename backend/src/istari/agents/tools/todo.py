@@ -20,8 +20,8 @@ _QUADRANT_LABELS: dict[tuple[bool | None, bool | None], str] = {
     (True, True): "Q1 — Do Now",
     (False, True): "Q2 — Schedule",
     (None, True): "Q2 — Schedule",
-    (True, False): "Q3 — Delegate",
-    (True, None): "Q3 — Delegate",
+    (True, False): "Q3 — Contain",
+    (True, None): "Q3 — Contain",
     (False, False): "Q4 — Drop",
 }
 
