@@ -95,6 +95,7 @@ def build_tools(
     from istari.agents.tools.gmail import make_gmail_tools
     from istari.agents.tools.memory import make_memory_tools
     from istari.agents.tools.todo import make_todo_tools
+    from istari.agents.tools.web import make_web_search_tools
 
     tools: list[AgentTool] = [
         *make_todo_tools(session, context),
@@ -102,6 +103,7 @@ def build_tools(
         *make_gmail_tools(),
         *make_calendar_tools(),
         *make_filesystem_tools(),
+        *make_web_search_tools(),
     ]
     if mcp_tools:
         tools.extend(mcp_tools)
