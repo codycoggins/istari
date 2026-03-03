@@ -1,5 +1,6 @@
 """TODO CRUD endpoints."""
 
+import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +32,28 @@ async def list_todos(db: DB) -> TodoListResponse:
 async def create_todo(body: TodoCreate, db: DB) -> TodoResponse:
     mgr = TodoManager(db)
     todo = await mgr.create(title=body.title)
+    await db.commit()
+    await db.refresh(todo)
+    return TodoResponse.model_validate(todo)
+
+
+@router.get("/today", response_model=TodoListResponse)
+async def list_today_todos(db: DB) -> TodoListResponse:
+    mgr = TodoManager(db)
+    todos = await mgr.list_today()
+    return TodoListResponse(todos=[TodoResponse.model_validate(t) for t in todos])
+
+
+@router.post("/{todo_id}/today", response_model=TodoResponse)
+async def toggle_today(todo_id: int, db: DB) -> TodoResponse:
+    mgr = TodoManager(db)
+    todo = await mgr.get(todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    flag = todo.today_date != datetime.date.today()
+    todo = await mgr.set_today(todo_id, flag)
+    if todo is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
     await db.commit()
     await db.refresh(todo)
     return TodoResponse.model_validate(todo)

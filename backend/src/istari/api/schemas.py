@@ -21,6 +21,7 @@ class TodoUpdate(BaseModel):
     source: str | None = None
     source_link: str | None = None
     due_date: datetime.datetime | None = None
+    today_date: datetime.date | None = None
     tags: list[str] | None = None
 
 
@@ -37,6 +38,7 @@ class TodoResponse(BaseModel):
     source: str | None = None
     source_link: str | None = None
     due_date: datetime.datetime | None = None
+    today_date: datetime.date | None = None
     tags: list[str] | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime

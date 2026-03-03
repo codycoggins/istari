@@ -235,6 +235,61 @@ class TestGetPrioritiesTool:
 # Memory tools
 # ---------------------------------------------------------------------------
 
+class TestTodayFocusTools:
+    async def test_set_today_focus_adds_task(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Write report")
+        await db_session.flush()
+
+        ctx = AgentContext()
+        tools = {t.name: t for t in make_todo_tools(db_session, ctx)}
+        result = await tools["set_today_focus"].fn(query=str(todo.id), focus=True)
+
+        assert "Write report" in result
+        assert "Added" in result
+        assert ctx.todo_updated is True
+
+        updated = await mgr.get(todo.id)
+        import datetime
+        assert updated.today_date == datetime.date.today()
+
+    async def test_set_today_focus_removes_task(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Clean desk")
+        await mgr.set_today(todo.id, True)
+        await db_session.flush()
+
+        ctx = AgentContext()
+        tools = {t.name: t for t in make_todo_tools(db_session, ctx)}
+        result = await tools["set_today_focus"].fn(query=str(todo.id), focus=False)
+
+        assert "Removed" in result
+        assert ctx.todo_updated is True
+
+        updated = await mgr.get(todo.id)
+        assert updated.today_date is None
+
+    async def test_get_today_focus_empty(self, db_session):
+        ctx = AgentContext()
+        tools = {t.name: t for t in make_todo_tools(db_session, ctx)}
+        result = await tools["get_today_focus"].fn()
+
+        assert "haven't set" in result
+
+    async def test_get_today_focus_shows_tasks(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Review PRs")
+        await mgr.set_today(todo.id, True)
+        await db_session.flush()
+
+        ctx = AgentContext()
+        tools = {t.name: t for t in make_todo_tools(db_session, ctx)}
+        result = await tools["get_today_focus"].fn()
+
+        assert "Review PRs" in result
+        assert "1/5" in result or "Today's focus" in result
+
+
 class TestMemoryTools:
     async def test_remember_stores_and_sets_flag(self, db_session):
         ctx = AgentContext()

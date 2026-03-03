@@ -11,6 +11,7 @@ export interface TodoUpdatePayload {
   source: string | null;
   source_link: string | null;
   due_date: string | null;
+  today_date?: string | null;
   tags: string[];
 }
 
@@ -34,4 +35,8 @@ export async function updateTodo(id: number, updates: TodoUpdatePayload): Promis
     method: "PATCH",
     body: JSON.stringify(updates),
   });
+}
+
+export async function toggleTodayFocus(id: number): Promise<Todo> {
+  return apiFetch(`/todos/${id}/today`, { method: "POST" });
 }

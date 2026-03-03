@@ -5,6 +5,7 @@ import {
   completeTodo as apiCompleteTodo,
   reopenTodo as apiReopenTodo,
   updateTodo as apiUpdateTodo,
+  toggleTodayFocus as apiToggleTodayFocus,
   type TodoUpdatePayload,
 } from "../api/todos";
 
@@ -49,5 +50,13 @@ export function useTodos() {
     [refresh],
   );
 
-  return { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo };
+  const toggleTodayFocus = useCallback(
+    async (id: number) => {
+      await apiToggleTodayFocus(id);
+      refresh();
+    },
+    [refresh],
+  );
+
+  return { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus };
 }

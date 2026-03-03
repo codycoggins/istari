@@ -117,3 +117,26 @@ class TodoManager:
     ) -> Todo | None:
         """Set Eisenhower urgency/importance fields on a TODO."""
         return await self.update(todo_id, urgent=urgent, important=important)
+
+    async def list_today(self) -> list[Todo]:
+        """Return actionable TODOs focused for today, sorted by quadrant then recency."""
+        today = datetime.date.today()
+        quadrant = case(
+            (and_(Todo.urgent == True, Todo.important == True), 1),  # noqa: E712
+            (Todo.important == True, 2),  # noqa: E712
+            (Todo.urgent == True, 3),  # noqa: E712
+            (and_(Todo.urgent.is_(None), Todo.important.is_(None)), 4),
+            else_=5,
+        )
+        stmt = (
+            select(Todo)
+            .where(Todo.today_date == today, Todo.status.in_(self._ACTIONABLE))
+            .order_by(quadrant.asc(), Todo.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def set_today(self, todo_id: int, flag: bool) -> Todo | None:
+        """Set or clear today_date on a TODO. flag=True sets today; flag=False clears."""
+        value = datetime.date.today() if flag else None
+        return await self.update(todo_id, today_date=value)

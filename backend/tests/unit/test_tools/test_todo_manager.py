@@ -1,5 +1,7 @@
 """Tests for TodoManager — CRUD against SQLite test DB."""
 
+import datetime
+
 from istari.models.todo import TodoStatus
 from istari.tools.todo.manager import TodoManager
 
@@ -110,3 +112,48 @@ class TestTodoPrioritization:
         await mgr.create("Has priority", priority=1)
         prioritized = await mgr.get_prioritized(limit=2)
         assert prioritized[0].title == "Has priority"
+
+
+class TestTodayFocus:
+    async def test_set_today_flags_todo(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Focus task")
+        updated = await mgr.set_today(todo.id, True)
+        assert updated is not None
+        assert updated.today_date == datetime.date.today()
+
+    async def test_set_today_false_clears_date(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Focus task")
+        await mgr.set_today(todo.id, True)
+        updated = await mgr.set_today(todo.id, False)
+        assert updated is not None
+        assert updated.today_date is None
+
+    async def test_list_today_returns_only_todays_tasks(self, db_session):
+        mgr = TodoManager(db_session)
+        t1 = await mgr.create("Today task")
+        await mgr.create("Not today task")
+        await mgr.set_today(t1.id, True)
+
+        results = await mgr.list_today()
+        assert len(results) == 1
+        assert results[0].id == t1.id
+
+    async def test_list_today_excludes_complete(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Complete today task")
+        await mgr.set_today(todo.id, True)
+        await mgr.set_status(todo.id, TodoStatus.COMPLETE)
+
+        results = await mgr.list_today()
+        assert len(results) == 0
+
+    async def test_list_today_excludes_old_date(self, db_session):
+        mgr = TodoManager(db_session)
+        todo = await mgr.create("Yesterday task")
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        await mgr.update(todo.id, today_date=yesterday)
+
+        results = await mgr.list_today()
+        assert len(results) == 0

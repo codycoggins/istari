@@ -363,6 +363,7 @@ interface TodoPanelProps {
   onComplete: (id: number) => void;
   onReopen: (id: number) => void;
   onSave: (id: number, updates: TodoUpdatePayload) => Promise<void>;
+  onToggleToday?: (id: number) => void;
   onAskPriorities?: () => void;
   settings?: Record<string, string>;
   onToggleFocusMode?: (enabled: boolean) => void;
@@ -374,6 +375,7 @@ export function TodoPanel({
   onComplete,
   onReopen,
   onSave,
+  onToggleToday,
   onAskPriorities,
   settings,
   onToggleFocusMode,
@@ -382,7 +384,10 @@ export function TodoPanel({
   const focusMode = settings?.focus_mode === "true";
   const quietStart = settings?.quiet_hours_start ?? "21";
   const quietEnd = settings?.quiet_hours_end ?? "7";
+  const todayStr = new Date().toISOString().slice(0, 10);
   const visibleTodos = todos.filter((t) => !isCompletedBeforeToday(t));
+  const todayTodos = visibleTodos.filter((t) => t.today_date === todayStr);
+  const remainingTodos = visibleTodos.filter((t) => t.today_date !== todayStr);
 
   return (
     <>
@@ -435,6 +440,62 @@ export function TodoPanel({
           </button>
         </div>
 
+        {/* Today's Goals section */}
+        {!isLoading && todayTodos.length > 0 && (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--accent)",
+                }}
+              >
+                Today's Goals
+              </span>
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  fontWeight: 700,
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  background: todayTodos.length >= 5 ? "var(--accent-dim)" : "var(--bg-elevated)",
+                  color: todayTodos.length >= 5 ? "var(--accent)" : "var(--text-muted)",
+                  border: `1px solid ${todayTodos.length >= 5 ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                }}
+              >
+                {todayTodos.length} / 5
+              </span>
+            </div>
+            {todayTodos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onComplete={onComplete}
+                onReopen={onReopen}
+                onEdit={setEditTodo}
+                onToggleToday={onToggleToday}
+              />
+            ))}
+            <hr
+              style={{
+                border: "none",
+                borderTop: "1px solid var(--border-subtle)",
+                margin: "0.625rem 0",
+              }}
+            />
+          </>
+        )}
+
         {/* Todo list */}
         {isLoading && (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
@@ -446,13 +507,14 @@ export function TodoPanel({
             No tasks yet
           </p>
         )}
-        {visibleTodos.map((todo) => (
+        {remainingTodos.map((todo) => (
           <TodoItem
             key={todo.id}
             todo={todo}
             onComplete={onComplete}
             onReopen={onReopen}
             onEdit={setEditTodo}
+            onToggleToday={onToggleToday}
           />
         ))}
 

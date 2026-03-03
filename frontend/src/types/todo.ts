@@ -9,6 +9,7 @@ export interface Todo {
   source?: string;
   source_link?: string;
   due_date?: string;
+  today_date?: string | null;
   tags?: string[];
   created_at: string;
   updated_at: string;

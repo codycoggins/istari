@@ -18,7 +18,7 @@ export default function App() {
     checkAuth().then(setIsAuthenticated);
   }, []);
 
-  const { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo } = useTodos();
+  const { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus } = useTodos();
   const {
     notifications,
     unreadCount,
@@ -129,6 +129,7 @@ export default function App() {
             onComplete={completeTodo}
             onReopen={reopenTodo}
             onSave={updateTodo}
+            onToggleToday={toggleTodayFocus}
             onAskPriorities={handleAskPriorities}
             settings={settings}
             onToggleFocusMode={handleToggleFocusMode}

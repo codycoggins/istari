@@ -205,6 +205,64 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
         titles_list = [f'"{t.title}"' for t in todos]
         return f"Updated {len(todos)} TODOs to {quadrant}: " + ", ".join(titles_list)
 
+    async def set_today_focus(query: str, focus: bool) -> str:
+        mgr = TodoManager(session)
+
+        # Soft cap: warn when already at 5 tasks focused for today
+        if focus:
+            current = await mgr.list_today()
+            if len(current) >= 5:
+                titles = ", ".join(f'"{t.title}"' for t in current)
+                return (
+                    f"You already have 5 tasks focused for today: {titles}. "
+                    "Consider removing one before adding another."
+                )
+
+        # Try numeric ID first
+        with contextlib.suppress(ValueError, TypeError):
+            todo_id = int(query)
+            todo = await mgr.get(todo_id)
+            if todo is not None:
+                await mgr.set_today(todo.id, focus)
+                await session.commit()
+                context.todo_updated = True
+                action = "Added" if focus else "Removed"
+                prep = "to" if focus else "from"
+                return f'{action} "{todo.title}" {prep} today\'s focus.'
+
+        # Pattern match
+        stmt = select(Todo).where(Todo.title.ilike(f"%{query}%"))
+        result = await session.execute(stmt)
+        todos = list(result.scalars().all())
+
+        if not todos:
+            return f'No TODOs found matching "{query}".'
+
+        updated: list[Todo] = []
+        for todo in todos:
+            await mgr.set_today(todo.id, focus)
+            updated.append(todo)
+        await session.commit()
+        context.todo_updated = True
+        action = "Added" if focus else "Removed"
+        prep = "to" if focus else "from"
+        if len(updated) == 1:
+            return f'{action} "{updated[0].title}" {prep} today\'s focus.'
+        titles_list = [f'"{t.title}"' for t in updated]
+        return f"{action} {len(updated)} tasks {prep} today's focus: " + ", ".join(titles_list)
+
+    async def get_today_focus() -> str:
+        mgr = TodoManager(session)
+        todos = await mgr.list_today()
+        if not todos:
+            return "You haven't set any tasks to focus on today."
+        lines = [f"Today's focus ({len(todos)}/5):"]
+        for t in todos:
+            quadrant = _QUADRANT_LABELS.get((t.urgent, t.important), "")
+            quad_tag = f" [{quadrant}]" if quadrant else ""
+            lines.append(f"- (id={t.id}) {t.title}{quad_tag}")
+        return "\n".join(lines)
+
     async def get_priorities() -> str:
         mgr = TodoManager(session)
         todos = await mgr.get_prioritized(limit=3)
@@ -317,5 +375,33 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
             ),
             parameters={"type": "object", "properties": {}, "required": []},
             fn=get_priorities,
+        ),
+        AgentTool(
+            name="set_today_focus",
+            description=(
+                "Mark a TODO as today's focus (or remove it). Use this when the user "
+                "says they want to work on something today or focus on it. Soft limit: 5."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Task title keywords or numeric ID.",
+                    },
+                    "focus": {
+                        "type": "boolean",
+                        "description": "True to add to today's focus, false to remove.",
+                    },
+                },
+                "required": ["query", "focus"],
+            },
+            fn=set_today_focus,
+        ),
+        AgentTool(
+            name="get_today_focus",
+            description="List the tasks the user has focused on for today.",
+            parameters={"type": "object", "properties": {}, "required": []},
+            fn=get_today_focus,
         ),
     ]

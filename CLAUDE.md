@@ -11,7 +11,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 283 backend + 13 frontend tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- **All 292 backend + 16 frontend tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -22,7 +22,7 @@ See `istari-project-outline.md` for the full project specification.
   - Explicit memory store with ILIKE search (API + tool)
   - Settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
-  - **TODO tools** — `create_todos` (bulk; auto-classifies urgency/importance via LLM, asks user when uncertain), `list_todos` (filter: open/all/complete, shows quadrant labels), `update_todo_status` (by ID or ILIKE, bulk, synonym normalization), `update_todo_priority` (set urgent/important by ID or ILIKE), `get_priorities` (Q1→Q2→Q3→unclassified→Q4 sort + quadrant labels)
+  - **TODO tools** — `create_todos` (bulk; auto-classifies urgency/importance via LLM, asks user when uncertain), `list_todos` (filter: open/all/complete, shows quadrant labels), `update_todo_status` (by ID or ILIKE, bulk, synonym normalization), `update_todo_priority` (set urgent/important by ID or ILIKE), `get_priorities` (Q1→Q2→Q3→unclassified→Q4 sort + quadrant labels), `set_today_focus` (mark task for today, soft cap 5), `get_today_focus` (list today's focused tasks)
   - **Eisenhower matrix** — `urgent` and `important` nullable Boolean columns on `Todo`; `get_prioritized()` and `list_visible()` use SQLAlchemy `case()` for quadrant sort; `set_urgency_importance()` on TodoManager; frontend TODO sidebar shows color-coded Q1/Q2/Q3/Q4 badges (Do Now / Schedule / Delegate / Drop)
   - **Memory tools** — `remember`, `search_memory`
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
@@ -38,8 +38,9 @@ See `istari-project-outline.md` for the full project specification.
   - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
   - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
+  - **Today's Goals (daily focus)** — `today_date: date | None` column on `Todo`; self-cleaning (filter is `today_date == date.today()`, yesterday's selections vanish at midnight); `list_today()` + `set_today()` on `TodoManager`; `GET /todos/today` + `POST /todos/{id}/today` (toggle) API endpoints; target/crosshair icon on each `TodoItem` (gold when active); "Today's Goals" section at top of `TodoPanel` with `N / 5` counter badge (gold at limit)
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close; **markdown rendering** in assistant messages via `react-markdown` + `remark-gfm` (headers, bold, code blocks, lists, tables, blockquotes); user messages stay plain text
-- **DB migrations:** all tables exist and are up to date (digests, conversation_messages, eisenhower fields all applied)
+- **DB migrations:** all tables exist and are up to date — most recent: `b2d4e6f8a0c2` (add today_date to todos)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in `secrets/` (Google Cloud OAuth Desktop App) — writes `secrets/gmail_token.json`
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `secrets/credentials.json`, writes `secrets/calendar_token.json`
 - **Custom slash commands:** `.claude/commands/test.md` → `/test` runs full CI suite (ruff, mypy, pytest, eslint, tsc, vitest) with a pass/fail summary table
@@ -48,6 +49,7 @@ See `istari-project-outline.md` for the full project specification.
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
+  - Today's Goals: proactive morning prompt ("You have 0 tasks focused for today — want me to suggest some?")
 - **Security hardening (Phase 7 — COMPLETE):**
   1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
   2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset

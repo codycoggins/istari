@@ -4,7 +4,7 @@ import datetime
 import enum
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, Enum, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,6 +43,7 @@ class Todo(TimestampMixin, Base):
     source: Mapped[str | None] = mapped_column(String(100))
     source_link: Mapped[str | None] = mapped_column(String(1000))
     due_date: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    today_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     last_prompted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     embedding: Mapped[list[float] | None] = mapped_column(Vector(768))

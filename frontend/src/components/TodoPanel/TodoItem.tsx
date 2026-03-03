@@ -6,6 +6,7 @@ interface TodoItemProps {
   onComplete: (id: number) => void;
   onReopen: (id: number) => void;
   onEdit: (todo: Todo) => void;
+  onToggleToday?: (id: number) => void;
 }
 
 function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
@@ -20,9 +21,12 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   return null;
 }
 
-export function TodoItem({ todo, onComplete, onReopen, onEdit }: TodoItemProps) {
+export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: TodoItemProps) {
   const [pencilHovered, setPencilHovered] = useState(false);
+  const [targetHovered, setTargetHovered] = useState(false);
   const isComplete = todo.status === "complete";
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isToday = todo.today_date === todayStr;
   const quadrant = getQuadrant(todo.urgent, todo.important);
   const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked");
 
@@ -123,6 +127,49 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit }: TodoItemProps) 
           </div>
         )}
       </div>
+
+      {/* Target / focus-today button */}
+      {!isComplete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleToday?.(todo.id);
+          }}
+          onMouseEnter={() => setTargetHovered(true)}
+          onMouseLeave={() => setTargetHovered(false)}
+          aria-label={isToday ? "Remove from today" : "Focus today"}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "0.1rem",
+            cursor: "pointer",
+            flexShrink: 0,
+            color: isToday
+              ? "var(--accent)"
+              : targetHovered
+                ? "var(--text-secondary)"
+                : "var(--text-muted)",
+            transition: "color 0.15s",
+            lineHeight: 1,
+            marginTop: "0.05rem",
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill={isToday ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
+        </button>
+      )}
 
       {/* Pencil / edit button */}
       <button
