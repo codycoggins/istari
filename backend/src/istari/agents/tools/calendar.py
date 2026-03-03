@@ -19,6 +19,13 @@ def make_calendar_tools() -> list[AgentTool]:
         from istari.config.settings import settings
 
         max_r = settings.calendar_max_results
+        logger.info(
+            "check_calendar | backend=%s token=%s query=%r days=%d",
+            settings.calendar_backend,
+            settings.calendar_token_path,
+            query or "<upcoming>",
+            days,
+        )
 
         try:
             reader: Any
@@ -35,16 +42,19 @@ def make_calendar_tools() -> list[AgentTool]:
                 events = await reader.list_upcoming(days=days, max_results=max_r)
 
         except ImportError as exc:
+            logger.error("check_calendar | import error: %s", exc)
             return f"Calendar backend unavailable: {exc}"
         except FileNotFoundError:
+            logger.error("check_calendar | token file not found: %s", settings.calendar_token_path)
             return (
                 "Google Calendar isn't connected yet. "
                 "Run `python scripts/setup_calendar.py` to link your calendar."
             )
         except PermissionError as exc:
+            logger.error("check_calendar | permission error: %s", exc)
             return str(exc)
         except Exception:
-            logger.exception("Calendar tool error")
+            logger.exception("check_calendar | unexpected error")
             return "Couldn't reach your calendar. Try again in a moment."
 
         if not events:

@@ -39,16 +39,20 @@ class CalendarReader:
 
     def __init__(self, token_path: str) -> None:
         path = Path(token_path)
+        logger.debug("CalendarReader: loading token from %s", path)
         if not path.exists():
+            logger.error("CalendarReader: token not found at %s", path)
             raise FileNotFoundError(
                 f"Calendar token not found at {path}. "
                 "Run: python scripts/setup_calendar.py"
             )
         creds = Credentials.from_authorized_user_file(str(path), self.SCOPES)  # type: ignore[no-untyped-call]
         if creds.expired and creds.refresh_token:
+            logger.info("CalendarReader: refreshing expired token")
             creds.refresh(Request())
             path.write_text(creds.to_json())
         self._service = build("calendar", "v3", credentials=creds)
+        logger.info("CalendarReader: ready")
 
     def _list_events_sync(
         self,
@@ -86,27 +90,34 @@ class CalendarReader:
         self, days: int = 7, max_results: int = 10
     ) -> list[CalendarEvent]:
         """Return events starting within the next `days` days."""
+        logger.info("CalendarReader: listing upcoming events (days=%d, max=%d)", days, max_results)
         now = datetime.datetime.now(datetime.UTC)
         time_max = now + datetime.timedelta(days=days)
-        return await asyncio.to_thread(
+        results = await asyncio.to_thread(
             self._list_events_sync,
             time_min=now,
             time_max=time_max,
             max_results=max_results,
         )
+        logger.info("CalendarReader: list_upcoming returned %d event(s)", len(results))
+        return results
 
     async def search(self, query: str, max_results: int = 10) -> list[CalendarEvent]:
         """Search events by text query (searches title, description, location)."""
+        logger.info("CalendarReader: searching query=%r (max=%d)", query, max_results)
         now = datetime.datetime.now(datetime.UTC)
-        return await asyncio.to_thread(
+        results = await asyncio.to_thread(
             self._list_events_sync,
             query=query,
             time_min=now,
             max_results=max_results,
         )
+        logger.info("CalendarReader: search returned %d event(s)", len(results))
+        return results
 
     async def get_event(self, event_id: str) -> CalendarEvent:
         """Fetch full details of a single event by ID."""
+        logger.info("CalendarReader: fetching event %s", event_id)
         return await asyncio.to_thread(self._get_event_sync, event_id)
 
     @staticmethod

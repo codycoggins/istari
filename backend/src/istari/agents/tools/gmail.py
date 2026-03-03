@@ -14,6 +14,7 @@ def make_gmail_tools() -> list[AgentTool]:
         from istari.config.settings import settings
         from istari.tools.gmail.reader import GmailReader
 
+        logger.info("check_email | token=%s query=%r", settings.gmail_token_path, query or "<unread>")
         try:
             reader = GmailReader(settings.gmail_token_path)
             if query:
@@ -21,12 +22,13 @@ def make_gmail_tools() -> list[AgentTool]:
             else:
                 emails = await reader.list_unread(max_results=settings.gmail_max_results)
         except FileNotFoundError:
+            logger.error("check_email | token file not found: %s", settings.gmail_token_path)
             return (
                 "Gmail isn't connected yet. Run `python scripts/setup_gmail.py` "
                 "to link your Gmail account."
             )
         except Exception:
-            logger.exception("Gmail tool error")
+            logger.exception("check_email | unexpected error")
             return "Couldn't reach Gmail. Try again in a moment."
 
         if not emails:

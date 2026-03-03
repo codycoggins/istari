@@ -8,7 +8,14 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _CONFIG_DIR = Path(__file__).parent
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]  # src/istari/config/ -> project root
+# In a dev editable install: .../src/istari/config/settings.py → parents[4] = project root
+# In a Docker regular install: .../site-packages/istari/config/settings.py → parents[4] = /usr/local/lib
+# Detect the latter by checking if __file__ itself lives under site-packages.
+_PROJECT_ROOT = (
+    Path.cwd()
+    if "site-packages" in str(Path(__file__).resolve())
+    else Path(__file__).resolve().parents[4]
+)
 
 
 def _load_yaml(filename: str) -> dict[str, Any]:

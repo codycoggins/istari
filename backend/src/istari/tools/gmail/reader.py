@@ -47,15 +47,19 @@ class GmailReader:
 
     def __init__(self, token_path: str) -> None:
         path = Path(token_path)
+        logger.debug("GmailReader: loading token from %s", path)
         if not path.exists():
+            logger.error("GmailReader: token not found at %s", path)
             raise FileNotFoundError(
                 f"Gmail token not found at {path}. Run: python scripts/setup_gmail.py"
             )
         creds = Credentials.from_authorized_user_file(str(path))  # type: ignore[no-untyped-call]
         if creds.expired and creds.refresh_token:
+            logger.info("GmailReader: refreshing expired token")
             creds.refresh(Request())
             path.write_text(creds.to_json())
         self._service = build("gmail", "v1", credentials=creds)
+        logger.info("GmailReader: ready")
 
     def _list_messages_sync(self, query: str, max_results: int) -> list[EmailSummary]:
         resp = (
@@ -105,12 +109,19 @@ class GmailReader:
         return ThreadDetail(thread_id=thread_id, subject=subject, messages=messages)
 
     async def list_unread(self, max_results: int = 20) -> list[EmailSummary]:
-        return await asyncio.to_thread(self._list_messages_sync, "is:unread", max_results)
+        logger.info("GmailReader: listing unread (max=%d)", max_results)
+        results = await asyncio.to_thread(self._list_messages_sync, "is:unread", max_results)
+        logger.info("GmailReader: list_unread returned %d message(s)", len(results))
+        return results
 
     async def search(self, query: str, max_results: int = 20) -> list[EmailSummary]:
-        return await asyncio.to_thread(self._list_messages_sync, query, max_results)
+        logger.info("GmailReader: searching query=%r (max=%d)", query, max_results)
+        results = await asyncio.to_thread(self._list_messages_sync, query, max_results)
+        logger.info("GmailReader: search returned %d message(s)", len(results))
+        return results
 
     async def get_thread(self, thread_id: str) -> ThreadDetail:
+        logger.info("GmailReader: fetching thread %s", thread_id)
         return await asyncio.to_thread(self._get_thread_sync, thread_id)
 
     @staticmethod

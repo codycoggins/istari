@@ -10,6 +10,26 @@ from istari.llm.config import get_model_config
 # Suppress LiteLLM's verbose logging
 litellm.suppress_debug_info = True
 
+# Pre-register local Ollama models so LiteLLM's cost calculator doesn't fire a
+# preflight GET to /api/show (which produces a noisy 404 because LiteLLM passes
+# the full /api/generate URL as the base rather than just the host).
+_OLLAMA_STUB: dict[str, Any] = {
+    "litellm_provider": "ollama",
+    "mode": "chat",
+    "max_tokens": 8192,
+    "max_input_tokens": 8192,
+    "max_output_tokens": 8192,
+    "input_cost_per_token": 0.0,
+    "output_cost_per_token": 0.0,
+}
+litellm.model_cost.update(
+    {
+        "ollama/llama3.1:8b-instruct-q8_0": _OLLAMA_STUB,
+        "ollama/mistral:7b-instruct-q8_0": _OLLAMA_STUB,
+        "ollama/nomic-embed-text": {**_OLLAMA_STUB, "mode": "embedding"},
+    }
+)
+
 
 async def completion(
     task_type: str,

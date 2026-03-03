@@ -80,6 +80,7 @@ See `istari-project-outline.md` for the full project specification.
 - `python scripts/setup_calendar.py` — OAuth2 Calendar setup (reuses same `credentials.json`; writes separate `calendar_token.json`)
 - `cd backend && python -c "import asyncio; from istari.worker.jobs.backup import run_backup; asyncio.run(run_backup())"` — trigger a backup immediately (requires `BACKUP_ENABLED=true` and `BACKUP_PASSPHRASE` set in `.env`)
 - `./scripts/restore_db.sh <file.dump.enc>` — decrypt and restore a backup (prompts for passphrase)
+- `ngrok start istari` — expose the app via the static domain `https://tippiest-nonpalatable-darin.ngrok-free.dev` (tunnels to port 3000; requires `COOKIE_SECURE=true` and auth configured in `.env`)
 
 ## Architecture Decisions
 - **src-layout**: `backend/src/istari/` — Python package installed via `pip install -e .`, both api and worker import as `from istari.X import ...`
@@ -217,3 +218,8 @@ See `istari-project-outline.md` for the full project specification.
 - **WebSocket close code 4401**: application-reserved codes 4000–4999 signal app-level errors; 4401 = auth failure — backend does `await ws.accept(); await ws.close(code=4401)`; frontend checks `event.code === 4401` in `ws.onclose` and calls `onAuthFailure` instead of triggering reconnect
 - **Auth enabled/disabled pattern**: `APP_SECRET_KEY` empty → middleware and `/me` pass everything through (dev convenience); set both `APP_SECRET_KEY` and `APP_PASSWORD` in `.env` to enforce auth; use `secrets.compare_digest` for constant-time password comparison; `response.delete_cookie` must pass the same `httponly`, `secure`, `samesite`, `path` kwargs as `set_cookie` or the browser won't honour the deletion
 - **`.env.example` is not readable via `Read` tool or `cat`**: permission denied by Claude Code settings; use `git diff HEAD .env.example` to inspect its contents
+- **`_PROJECT_ROOT` in Docker**: `Path(__file__).resolve().parents[4]` resolves to `/usr/local/lib` in a regular (non-editable) Docker install, not the project root. Detect with `"site-packages" in str(Path(__file__).resolve())` and fall back to `Path.cwd()` (`WORKDIR=/app` in the container). Already fixed in `settings.py`.
+- **LiteLLM Ollama in Docker**: Must set both `OLLAMA_BASE_URL` AND `OLLAMA_API_BASE` to `http://host.docker.internal:11434` in docker-compose.yml — LiteLLM's `get_model_info` preflight reads `OLLAMA_API_BASE` specifically. Ollama models are also pre-registered in `litellm.model_cost` in `router.py` to skip the HTTP preflight entirely.
+- **`secrets/` volume mount**: OAuth tokens live on the host at `secrets/`; both `api` and `worker` need `- ./secrets:/app/secrets` volume mount in docker-compose.yml or tokens are invisible inside containers.
+- **Google OAuth `invalid_grant`**: Means the refresh token was revoked (not just expired) — re-run `setup_gmail.py` or `setup_calendar.py` to re-authorize. Normal token expiry is handled automatically by auto-refresh.
+- **Glob tool skips gitignored files**: Don't conclude a file is missing because Glob returns nothing — `secrets/*.json` and other gitignored files won't appear. Use `docker compose exec api python -c "from pathlib import Path; print(Path('...').exists())"` to verify file presence inside the container.

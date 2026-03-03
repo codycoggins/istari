@@ -25,6 +25,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-istari}
       # host.docker.internal resolves to the Mac host — Ollama runs there, not in a container
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # LiteLLM's Ollama get_model_info() reads OLLAMA_API_BASE specifically (not OLLAMA_BASE_URL)
+      OLLAMA_API_BASE: http://host.docker.internal:11434
+    volumes:
+      # OAuth tokens and credentials — written by setup scripts on the host, read-only in containers
+      - ./secrets:/app/secrets
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,6 +50,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-istari}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_API_BASE: http://host.docker.internal:11434
+    volumes:
+      - ./secrets:/app/secrets
     depends_on:
       postgres:
         condition: service_healthy
