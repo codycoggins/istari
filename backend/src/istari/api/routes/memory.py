@@ -23,6 +23,15 @@ async def list_memories(db: DB) -> MemoryListResponse:
     )
 
 
+@router.get("/search", response_model=MemoryListResponse)
+async def search_memories(q: str, db: DB) -> MemoryListResponse:
+    store = MemoryStore(db)
+    memories = await store.search(q)
+    return MemoryListResponse(
+        memories=[MemoryResponse.model_validate(m) for m in memories],
+    )
+
+
 @router.post("/", response_model=MemoryResponse, status_code=201)
 async def create_memory(body: MemoryCreate, db: DB) -> MemoryResponse:
     store = MemoryStore(db)

@@ -105,3 +105,72 @@ class TestBuildSystemPromptMemories:
         user_pos = prompt.index("USER_CONTENT")
         mem_pos = prompt.index("mem fact")
         assert soul_pos < user_pos < mem_pos
+
+    async def test_uses_semantic_search_when_user_message_given(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        """When user_message is provided, search() is called instead of list_explicit()."""
+        monkeypatch.setattr("istari.agents.chat._MEMORY_DIR", tmp_path)
+        (tmp_path / "SOUL.md").write_text("You are Istari.")
+
+        search_calls: list[str] = []
+
+        async def mock_search(self, query: str):
+            search_calls.append(query)
+            return []
+
+        async def mock_list(self):
+            return []
+
+        monkeypatch.setattr("istari.tools.memory.store.MemoryStore.search", mock_search)
+        monkeypatch.setattr("istari.tools.memory.store.MemoryStore.list_explicit", mock_list)
+
+        await build_system_prompt(db_session, user_message="what are my preferences?")
+
+        assert search_calls == ["what are my preferences?"]
+
+    async def test_falls_back_to_list_explicit_when_search_empty(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        """When semantic search returns empty, fall back to list_explicit()."""
+        monkeypatch.setattr("istari.agents.chat._MEMORY_DIR", tmp_path)
+        (tmp_path / "SOUL.md").write_text("You are Istari.")
+
+        store = MemoryStore(db_session)
+        await store.store("User prefers vim", source="chat")
+        await db_session.flush()
+
+        async def mock_search(self, query: str):
+            return []  # semantic returns nothing → should fall back to list_explicit
+
+        monkeypatch.setattr("istari.tools.memory.store.MemoryStore.search", mock_search)
+
+        prompt = await build_system_prompt(
+            db_session, user_message="what are my preferences?"
+        )
+
+        assert "vim" in prompt  # list_explicit fallback injected the memory
+
+    async def test_uses_list_explicit_when_no_user_message(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        """Without user_message, list_explicit() is used (no search called)."""
+        monkeypatch.setattr("istari.agents.chat._MEMORY_DIR", tmp_path)
+        (tmp_path / "SOUL.md").write_text("You are Istari.")
+
+        search_calls: list[str] = []
+
+        async def mock_search(self, query: str):
+            search_calls.append(query)
+            return []
+
+        monkeypatch.setattr("istari.tools.memory.store.MemoryStore.search", mock_search)
+
+        store = MemoryStore(db_session)
+        await store.store("User likes jazz", source="chat")
+        await db_session.flush()
+
+        prompt = await build_system_prompt(db_session)
+
+        assert search_calls == []  # search not called without user_message
+        assert "jazz" in prompt  # list_explicit used instead

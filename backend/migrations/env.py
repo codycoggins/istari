@@ -2,11 +2,14 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 
+import istari.models  # noqa: F401 — register all models on Base.metadata
 from istari.models.base import Base
 
-import istari.models  # noqa: F401 — register all models on Base.metadata
+# Load .env so DATABASE_URL is available when running alembic commands locally
+load_dotenv()
 
 config = context.config
 

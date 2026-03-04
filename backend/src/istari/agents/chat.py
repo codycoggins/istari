@@ -10,7 +10,8 @@ Architecture: the LLM receives a set of tools and reasons across multiple turns:
 System prompt is assembled fresh on each turn from three sources (in order):
   1. memory/SOUL.md  — agent personality (editable, checked into git)
   2. memory/USER.md  — user profile (editable, gitignored)
-  3. Stored memories — top N explicit memories from the DB
+  3. Stored memories — semantically relevant to the current message (via pgvector cosine
+     similarity), falling back to newest-N when no message context or embeddings unavailable
 
 Tools are bound to the current DB session at WebSocket connect time via closures,
 so the agent has no direct DB access — all persistence goes through tool functions.
@@ -51,20 +52,28 @@ def _read_memory_file(filename: str) -> str:
 async def build_system_prompt(
     session: "AsyncSession",
     user_name: str = "",
+    user_message: str = "",
 ) -> str:
     """Assemble the full system prompt from SOUL.md, USER.md, and stored memories.
 
     Injection order:
       1. SOUL.md  (agent personality — falls back to minimal default if missing)
       2. USER.md  (user profile — optional; falls back to user_name setting)
-      3. Top N explicit memories from the DB
+      3. Relevant memories: semantic search on user_message when provided (pgvector cosine),
+         falling back to newest-N when no message or embeddings unavailable
     """
     from istari.tools.memory.store import MemoryStore
 
     soul = _read_memory_file("SOUL.md") or _FALLBACK_SOUL
     user_profile = _read_memory_file("USER.md")
 
-    memories = await MemoryStore(session).list_explicit()
+    store = MemoryStore(session)
+    if user_message:
+        memories = await store.search(user_message)
+        if not memories:
+            memories = await store.list_explicit()
+    else:
+        memories = await store.list_explicit()
 
     parts: list[str] = [soul]
 

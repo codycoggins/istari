@@ -10,8 +10,8 @@ See `istari-project-outline.md` for the full project specification.
 - **Phase 5: Eisenhower matrix COMPLETE**
 - **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
-- All verification checks passing: `pip install`, `ruff check`, `pytest` (excl. test_chat.py), `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 292 backend + 16 frontend tests passing** with no exclusions — `test_chat.py` rewritten for ReAct architecture
+- All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
+- **All 295 backend + 16 frontend tests passing** with no exclusions
 - **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
@@ -28,7 +28,7 @@ See `istari-project-outline.md` for the full project specification.
   - **Gmail/Calendar tools** — `check_email`, `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting)
   - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
   - **Memory files** — `memory/SOUL.md` (agent personality, checked in), `memory/USER.md` (user profile, gitignored); read fresh on every conversation start; no DB sync needed
-  - **build_system_prompt(session)** — assembles prompt from SOUL.md → USER.md (or `user_name` fallback) → top 20 stored memories; replaces hardcoded `_SYSTEM_PROMPT_TEMPLATE`
+  - **build_system_prompt(session, user_name, user_message)** — assembles prompt from SOUL.md → USER.md (or `user_name` fallback) → semantically relevant memories (pgvector cosine search on `user_message`, falls back to newest-20 via `list_explicit()` when message absent or search returns empty); replaces hardcoded `_SYSTEM_PROMPT_TEMPLATE`
   - **Persistent conversation history** — `ConversationMessage` table; `ConversationStore.load_history()` returns last 40 turns in chronological order; loaded once at WebSocket connect, saved after each exchange
   - **Post-turn memory extraction** — `memory_extractor.extract_and_store()` fires as `asyncio.create_task()` after each response; LLM extracts memorable facts → stored to `Memory` table (case-insensitive dedup); uses `memory_extraction` LLM task (local model, temperature=0.0)
   - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
@@ -45,7 +45,6 @@ See `istari-project-outline.md` for the full project specification.
 - **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `secrets/credentials.json`, writes `secrets/calendar_token.json`
 - **Custom slash commands:** `.claude/commands/test.md` → `/test` runs full CI suite (ruff, mypy, pytest, eslint, tsc, vitest) with a pass/fail summary table
 - **Next up:**
-  - pgvector semantic search for memories (column exists, search not wired up)
   - Focus mode enforcement in proactive agent
   - Frontend logging panel or log streaming for visibility into agent tool calls
   - Context compaction — summarize conversation turns older than 40 before they're dropped
@@ -66,7 +65,8 @@ See `istari-project-outline.md` for the full project specification.
 - `cd backend && pytest` — run backend tests
 - `cd backend && ruff check src/ tests/` — lint backend
 - `cd backend && mypy src/` — type check backend
-- `cd backend && alembic upgrade head` — run DB migrations
+- `cd backend && alembic upgrade head` — run DB migrations (DATABASE_URL auto-loaded from .env via migrations/env.py)
+- `cd backend && alembic current` — show current migration revision
 - `cd backend && alembic revision --autogenerate -m "description"` — create new migration
 - `cd frontend && npm install` — install frontend deps
 - `cd frontend && npm run dev` — Vite dev server on :3000
@@ -202,7 +202,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Frontend prop-wiring pattern**: when a parent needs to call a function owned by a child, add `onRegisterSend?: (fn) => void` prop; child calls it in `useEffect([..., fn])`. Test all three layers: child calls the prop, the prop receives the real function, and an App-level test confirms end-to-end button → sendMessage
 - **Frontend wiring tests**: mock `useChat` with `vi.mock("../../src/hooks/useChat", () => ({ useChat: () => ({ sendMessage: mockFn, ... }) }))` — see `ChatPanel.test.tsx` as canonical example
 - **Backend logging**: `logging.basicConfig()` in FastAPI `lifespan` wires `LOG_LEVEL` env var; agent tool calls logged at INFO with `"Tool call | %-24s | %.0fms | %d chars returned"` format; tool arguments at DEBUG only (may contain PII); agent start/finish at INFO with elapsed time; use `logger = logging.getLogger(__name__)` per module
-- **build_system_prompt(session, user_name="")**: async function in `agents/chat.py`; reads SOUL.md and USER.md via `_read_memory_file(filename)` (sync, returns "" if missing); falls back to USER.md → `user_name` setting for identity; loads `MemoryStore.list_explicit()` for injection; called inside the `async_session_factory()` block in `routes/chat.py`
+- **build_system_prompt(session, user_name="", user_message="")**: async function in `agents/chat.py`; reads SOUL.md and USER.md via `_read_memory_file(filename)` (sync, returns "" if missing); falls back to USER.md → `user_name` setting for identity; when `user_message` provided uses `MemoryStore.search(user_message)` for semantic (pgvector cosine) memory injection, falls back to `list_explicit()[:20]` if search returns empty; called per-turn inside the `async_session_factory()` block in `routes/chat.py`; `GET /memory/search?q=` REST endpoint also available
 - **ConversationStore**: `tools/conversation/store.py`; `load_history()` returns last 40 turns oldest-first; `save_turn(user, assistant)` adds two rows and flushes; loaded once at WebSocket connect, saved after each response before `send_json`
 - **Memory extractor**: `agents/memory_extractor.py`; `extract_and_store(user_msg, asst_msg, session_factory)` — fire-and-forget; patches: `istari.agents.memory_extractor.completion` and `istari.agents.memory_extractor.MemoryStore` for tests; `# noqa: RUF006` on `asyncio.create_task()` call
 - **SOUL.md / USER.md editing**: users edit `memory/SOUL.md` (personality) and `memory/USER.md` (profile) directly; changes take effect on next message with no restart; USER.md gitignored; USER.md.example committed as a template
@@ -210,6 +210,7 @@ See `istari-project-outline.md` for the full project specification.
 - **MCP tool tests**: patch `istari.tools.mcp.client.stdio_client` and `istari.tools.mcp.client.ClientSession` with `@asynccontextmanager` functions via `monkeypatch.setattr`; use `monkeypatch.setattr("istari.tools.mcp.client._CONFIG_DIR", tmp_path)` to redirect config loading in unit tests
 - **`docker exec` + pg_dump**: always pass `-U {username}` — without it pg_dump connects as the OS user (often `root`), which has no PostgreSQL role and fails. Pass the password via `docker exec -e PGPASSWORD container pg_dump -U user ...` where `PGPASSWORD` is set in the docker client's env; `-e PGPASSWORD` (no `=value`) forwards it into the container without exposing it in `ps aux`.
 - **Parsing DATABASE_URL**: use `urlparse(database_url.replace("+asyncpg", ""))` to extract username/password/dbname — strip the driver suffix first or urlparse won't parse the scheme correctly.
+- **Alembic .env loading**: `migrations/env.py` calls `load_dotenv()` (python-dotenv) at import time so `alembic current`, `alembic upgrade head`, etc. work without prefixing `DATABASE_URL=...` in the shell.
 - **Worker maintenance jobs skip `respect_quiet_hours`**: digest/staleness use the decorator because they're user-facing; backup does not — 2am is inside quiet hours (21:00–07:00) but maintenance must run regardless.
 - **Docker DATABASE_URL must use service name, not localhost**: `.env` has `localhost:5432` for local dev; inside Docker `localhost` resolves to the container itself. Override in `docker-compose.yml` with `environment: DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}` — the `environment` block takes precedence over `env_file`.
 - **Docker Ollama URL must use `host.docker.internal`**: `.env` has `OLLAMA_BASE_URL=http://localhost:11434` for local dev; inside Docker `localhost` is the container. Override in `docker-compose.yml` with `OLLAMA_BASE_URL: http://host.docker.internal:11434` on both `api` and `worker` services. `host.docker.internal` is a Docker Desktop built-in that resolves to the Mac host from any container.
