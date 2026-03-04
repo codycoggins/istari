@@ -83,8 +83,10 @@ async def test_list_upcoming(reader, mock_service):
     assert isinstance(results[0], CalendarEvent)
     assert results[0].id == "e1"
     assert results[0].summary == "Team standup"
+    assert results[0].html_link == "https://calendar.google.com/event?eid=e1"
     assert results[0].all_day is False
     assert results[1].id == "e2"
+    assert results[1].html_link == "https://calendar.google.com/event?eid=e2"
 
 
 @pytest.mark.asyncio
@@ -184,3 +186,16 @@ def test_parse_event_no_summary():
     assert result.summary == "(no title)"
     assert result.location == ""
     assert result.organizer == ""
+    assert result.html_link == ""
+
+
+def test_parse_event_html_link():
+    event = {
+        "id": "e7",
+        "summary": "Design review",
+        "start": {"dateTime": "2026-02-20T09:00:00Z"},
+        "end": {"dateTime": "2026-02-20T10:00:00Z"},
+        "htmlLink": "https://calendar.google.com/event?eid=e7",
+    }
+    result = CalendarReader._parse_event(event)
+    assert result.html_link == "https://calendar.google.com/event?eid=e7"

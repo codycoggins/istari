@@ -60,7 +60,7 @@ class CalendarReader:
         query: str | None = None,
         time_min: datetime.datetime | None = None,
         time_max: datetime.datetime | None = None,
-        max_results: int = 10,
+        max_results: int = 20,
     ) -> list[CalendarEvent]:
         now = datetime.datetime.now(datetime.UTC)
         params: dict[str, Any] = {
@@ -87,7 +87,7 @@ class CalendarReader:
         return self._parse_event(event)
 
     async def list_upcoming(
-        self, days: int = 7, max_results: int = 10
+        self, days: int = 7, max_results: int = 20
     ) -> list[CalendarEvent]:
         """Return events starting within the next `days` days."""
         logger.info("CalendarReader: listing upcoming events (days=%d, max=%d)", days, max_results)

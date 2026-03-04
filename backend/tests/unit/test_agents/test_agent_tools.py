@@ -1,9 +1,12 @@
 """Tests for agent tool functions and the ReAct agent loop."""
 
+import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from istari.agents.tools.base import AgentContext, normalize_status
+from istari.agents.tools.calendar import make_calendar_tools
+from istari.agents.tools.gmail import make_gmail_tools
 from istari.agents.tools.memory import make_memory_tools
 from istari.agents.tools.todo import make_todo_tools
 from istari.models.todo import TodoStatus
@@ -313,6 +316,150 @@ class TestMemoryTools:
         result = await tools["search_memory"].fn(query="nonexistent xyz")
 
         assert "No memories" in result
+
+
+# ---------------------------------------------------------------------------
+# Gmail tools
+# ---------------------------------------------------------------------------
+
+class TestGmailTools:
+    def _mock_reader(self, emails):
+        """Build a mock GmailReader that returns the given EmailSummary list."""
+        reader = MagicMock()
+        reader.list_unread = AsyncMock(return_value=emails)
+        reader.search = AsyncMock(return_value=emails)
+        return reader
+
+    def _make_email(self, subject="Test Subject", sender="test@example.com",
+                    snippet="snippet text", thread_id="thread123"):
+        from istari.tools.gmail.reader import EmailSummary
+        return EmailSummary(
+            id="msg1", thread_id=thread_id, subject=subject,
+            sender=sender, snippet=snippet, date=datetime.datetime(2024, 1, 1),
+        )
+
+    async def test_check_email_with_query_and_max_results(self, monkeypatch):
+        """LLM passes max_results — must not raise TypeError."""
+        email = self._make_email()
+        mock_reader = self._mock_reader([email])
+
+        monkeypatch.setattr("istari.agents.tools.gmail.GmailReader", lambda token: mock_reader)
+        monkeypatch.setattr("istari.agents.tools.gmail.settings.gmail_token_path", "/fake/token")
+
+        tools = {t.name: t for t in make_gmail_tools()}
+        # This is the exact call the LLM made that caused the TypeError
+        result = await tools["check_email"].fn(query="SYC", max_results=5)
+
+        mock_reader.search.assert_called_once_with("SYC", max_results=5)
+        assert "Test Subject" in result
+
+    async def test_check_email_no_args_uses_unread(self, monkeypatch):
+        email = self._make_email()
+        mock_reader = self._mock_reader([email])
+
+        monkeypatch.setattr("istari.agents.tools.gmail.GmailReader", lambda token: mock_reader)
+        monkeypatch.setattr("istari.agents.tools.gmail.settings.gmail_token_path", "/fake/token")
+
+        tools = {t.name: t for t in make_gmail_tools()}
+        result = await tools["check_email"].fn()
+
+        mock_reader.list_unread.assert_called_once()
+        assert "Test Subject" in result
+
+    async def test_check_email_result_contains_link(self, monkeypatch):
+        email = self._make_email(thread_id="abc123")
+        mock_reader = self._mock_reader([email])
+
+        monkeypatch.setattr("istari.agents.tools.gmail.GmailReader", lambda token: mock_reader)
+        monkeypatch.setattr("istari.agents.tools.gmail.settings.gmail_token_path", "/fake/token")
+
+        tools = {t.name: t for t in make_gmail_tools()}
+        result = await tools["check_email"].fn()
+
+        assert "https://mail.google.com/mail/u/0/#all/abc123" in result
+
+    def test_check_email_schema_includes_max_results(self):
+        """Tool schema must declare max_results so the LLM knows it's valid."""
+        tools = {t.name: t for t in make_gmail_tools()}
+        schema = tools["check_email"].to_openai_schema()
+        props = schema["function"]["parameters"]["properties"]
+        assert "max_results" in props
+
+
+# ---------------------------------------------------------------------------
+# Calendar tools
+# ---------------------------------------------------------------------------
+
+class TestCalendarTools:
+    def _make_event(self, summary="Team standup", html_link="", event_id="ev1"):
+        from istari.tools.calendar.reader import CalendarEvent
+        return CalendarEvent(
+            id=event_id,
+            summary=summary,
+            start=datetime.datetime(2026, 3, 10, 9, 0, tzinfo=datetime.UTC),
+            end=datetime.datetime(2026, 3, 10, 9, 30, tzinfo=datetime.UTC),
+            location="",
+            description="",
+            html_link=html_link,
+            organizer="",
+            all_day=False,
+        )
+
+    def _mock_reader(self, events):
+        reader = MagicMock()
+        reader.list_upcoming = AsyncMock(return_value=events)
+        reader.search = AsyncMock(return_value=events)
+        return reader
+
+    async def test_check_calendar_result_contains_link(self, monkeypatch):
+        """html_link from CalendarEvent must appear as a markdown link in output."""
+        event = self._make_event(
+            html_link="https://calendar.google.com/event?eid=ev1"
+        )
+        mock_reader = self._mock_reader([event])
+
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.CalendarReader", lambda token: mock_reader
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_token_path", "/fake/token"
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_backend", "google"
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_max_results", 10
+        )
+
+        tools = {t.name: t for t in make_calendar_tools()}
+        result = await tools["check_calendar"].fn()
+
+        assert "https://calendar.google.com/event?eid=ev1" in result
+        assert "[Team standup]" in result
+
+    async def test_check_calendar_no_link_falls_back_to_plain_text(self, monkeypatch):
+        """When html_link is empty the summary is shown without a link."""
+        event = self._make_event(html_link="")
+        mock_reader = self._mock_reader([event])
+
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.CalendarReader", lambda token: mock_reader
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_token_path", "/fake/token"
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_backend", "google"
+        )
+        monkeypatch.setattr(
+            "istari.agents.tools.calendar.settings.calendar_max_results", 10
+        )
+
+        tools = {t.name: t for t in make_calendar_tools()}
+        result = await tools["check_calendar"].fn()
+
+        assert "Team standup" in result
+        assert "](http" not in result  # no markdown link
 
 
 # ---------------------------------------------------------------------------

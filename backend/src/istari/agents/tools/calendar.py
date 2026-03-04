@@ -7,6 +7,9 @@ the CALENDAR_BACKEND setting ("apple" or "google").
 import logging
 from typing import Any
 
+from istari.config.settings import settings
+from istari.tools.calendar.reader import CalendarReader
+
 from .base import AgentTool
 
 logger = logging.getLogger(__name__)
@@ -16,8 +19,6 @@ def make_calendar_tools() -> list[AgentTool]:
     """Return Calendar tools. No session needed."""
 
     async def check_calendar(query: str = "", days: int = 7) -> str:
-        from istari.config.settings import settings
-
         max_r = settings.calendar_max_results
         logger.info(
             "check_calendar | backend=%s token=%s query=%r days=%d",
@@ -33,7 +34,6 @@ def make_calendar_tools() -> list[AgentTool]:
                 from istari.tools.apple_calendar.reader import AppleCalendarReader
                 reader = AppleCalendarReader()
             else:
-                from istari.tools.calendar.reader import CalendarReader
                 reader = CalendarReader(settings.calendar_token_path)
 
             if query:
@@ -66,7 +66,8 @@ def make_calendar_tools() -> list[AgentTool]:
         for e in events:
             start = e.start.isoformat() if e.start else "?"
             loc = f" @ {e.location}" if e.location else ""
-            lines.append(f"- {e.summary} ({start}{loc})")
+            title = f"[{e.summary}]({e.html_link})" if e.html_link else e.summary
+            lines.append(f"- {title} ({start}{loc})")
         return f"Found {len(events)} event(s):\n" + "\n".join(lines)
 
     backend_label = "calendar (Apple or Google depending on CALENDAR_BACKEND setting)"
