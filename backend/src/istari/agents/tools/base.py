@@ -41,6 +41,7 @@ class AgentContext:
     todo_created: bool = False
     todo_updated: bool = False
     memory_created: bool = False
+    tool_errors: list[str] = field(default_factory=list)
 
 
 @dataclass

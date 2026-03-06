@@ -125,6 +125,7 @@ async def run_agent(
     tools: list[AgentTool],
     *,
     system_prompt: str,
+    context: AgentContext | None = None,
 ) -> str:
     """Run the ReAct agent loop and return the final response text."""
     from istari.llm.router import completion
@@ -205,7 +206,9 @@ async def run_agent(
                     logger.exception(
                         "Tool error | %-24s | %.0fms | %s", tool_name, elapsed_ms, exc
                     )
-                    tool_result = f"Tool error: {exc}"
+                    tool_result = f"[TOOL_FAILED:{tool_name}] {type(exc).__name__}: {exc}"
+                    if context is not None:
+                        context.tool_errors.append(f"{tool_name}: {exc}")
 
             logger.debug("Tool result | %s | %r", tool_name, tool_result[:200])
             messages.append({

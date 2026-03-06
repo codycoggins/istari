@@ -105,7 +105,14 @@ async def chat_ws(ws: WebSocket) -> None:
                     history,
                     tools,
                     system_prompt=system_prompt,
+                    context=context,
                 )
+
+            if context.tool_errors:
+                error_lines = "\n".join(f"- {e}" for e in context.tool_errors)
+                response_text += f"\n\n⚠️ Some actions couldn't complete:\n{error_lines}"
+
+            async with async_session_factory() as session:
                 await ConversationStore(session).save_turn(user_message, response_text)
                 await session.commit()
 
