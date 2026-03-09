@@ -1,25 +1,48 @@
 """FastAPI application factory."""
 
 import logging
+import logging.handlers
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from istari.api.debug import ring_buffer
 from istari.api.middleware.auth import AuthMiddleware
 from istari.api.routes import auth, chat, digests, memory, notifications, settings, todos
+from istari.api.routes import debug as debug_routes
 from istari.config.settings import settings as app_settings
 from istari.tools.mcp.client import MCPManager, load_mcp_server_configs
+
+_LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s | %(message)s"
+_LOG_DATEFMT = "%H:%M:%S"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logging.basicConfig(
         level=app_settings.log_level.upper(),
-        format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
-        datefmt="%H:%M:%S",
+        format=_LOG_FORMAT,
+        datefmt=_LOG_DATEFMT,
     )
+    root = logging.getLogger()
+
+    # Rotating file handler — survives container restarts via volume mount
+    log_dir = Path("/app/logs")
+    if log_dir.exists():
+        fh = logging.handlers.RotatingFileHandler(
+            log_dir / "api.log",
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=3,
+        )
+        fh.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATEFMT))
+        root.addHandler(fh)
+
+    # In-process ring buffer for /api/debug/recent-errors
+    root.addHandler(ring_buffer)
+
     configs = load_mcp_server_configs()
     async with MCPManager(configs) as manager:
         app.state.mcp_tools = await manager.get_agent_tools()
@@ -45,6 +68,7 @@ app.include_router(memory.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(digests.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(debug_routes.router, prefix="/api")
 
 
 @app.get("/health")

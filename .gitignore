@@ -64,3 +64,7 @@ secrets/*
 # Personal memory files (user-owned, not checked in by default)
 memory/USER.md
 /icons/
+
+# Log files (volume-mounted from Docker containers)
+logs/*.log
+logs/*.log.*

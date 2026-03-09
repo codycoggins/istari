@@ -3,7 +3,9 @@
 import datetime
 import functools
 import logging
+import logging.handlers
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -38,8 +40,28 @@ def respect_quiet_hours(fn: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+_LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s | %(message)s"
+_LOG_DATEFMT = "%H:%M:%S"
+
+
 def main() -> None:
-    logging.basicConfig(level=settings.log_level)
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        format=_LOG_FORMAT,
+        datefmt=_LOG_DATEFMT,
+    )
+
+    # Rotating file handler — survives container restarts via volume mount
+    log_dir = Path("/app/logs")
+    if log_dir.exists():
+        fh = logging.handlers.RotatingFileHandler(
+            log_dir / "worker.log",
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=3,
+        )
+        fh.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATEFMT))
+        logging.getLogger().addHandler(fh)
+
     logger.info("Starting Istari worker")
 
     from istari.worker.jobs.backup import backup_sync

@@ -30,6 +30,8 @@ services:
     volumes:
       # OAuth tokens and credentials — written by setup scripts on the host, read-only in containers
       - ./secrets:/app/secrets
+      # Persistent logs — readable on host via Read tool without docker exec
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +55,7 @@ services:
       OLLAMA_API_BASE: http://host.docker.internal:11434
     volumes:
       - ./secrets:/app/secrets
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
