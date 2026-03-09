@@ -12,7 +12,7 @@ See `istari-project-outline.md` for the full project specification.
 - **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
 - All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **All 302 backend + 16 frontend tests passing** with no exclusions
-- **mypy: PASSING** — `mypy src/` returns 0 errors. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
+- **mypy: 1 pre-existing unused-ignore in `tools/mcp/client.py`** — all other files clean. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
   - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
   - WebSocket chat at `/api/chat/ws`
@@ -39,6 +39,7 @@ See `istari-project-outline.md` for the full project specification.
   - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
   - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
   - **Today's Goals (daily focus)** — `today_date: date | None` column on `Todo`; self-cleaning (filter is `today_date == date.today()`, yesterday's selections vanish at midnight); `list_today()` + `set_today()` on `TodoManager`; `GET /todos/today` + `POST /todos/{id}/today` (toggle) API endpoints; target/crosshair icon on each `TodoItem` (gold when active); "Today's Goals" section at top of `TodoPanel` with `N / 5` counter badge (gold at limit)
+  - **User-facing tool error surfacing** — two-layer approach: (1) tool exceptions formatted as `[TOOL_FAILED:{name}] ExcType: msg` so LLM can't silently ignore them + SOUL.md instruction to always report failures; (2) safety-net in `routes/chat.py` appends `⚠️ Some actions couldn't complete:` note after `run_agent()` if `context.tool_errors` is non-empty — guarantees user always sees failures
   - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close; **markdown rendering** in assistant messages via `react-markdown` + `remark-gfm` (headers, bold, code blocks, lists, tables, blockquotes); user messages stay plain text
 - **DB migrations:** all tables exist and are up to date — most recent: `b2d4e6f8a0c2` (add today_date to todos)
 - **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in `secrets/` (Google Cloud OAuth Desktop App) — writes `secrets/gmail_token.json`
@@ -56,6 +57,23 @@ See `istari-project-outline.md` for the full project specification.
   4. **Rate limiting on LLM endpoints** — COMPLETE: per-connection sliding-window rate limiter (`_RateLimiter`, deque + `time.monotonic`); 20 msg/60s on WebSocket; REST endpoints skipped (not needed for local use)
   5. **Audit credential files + fix default password** — COMPLETE: `secrets/` directory (gitignored); `credentials.json`, `gmail_token.json`, `calendar_token.json` all moved under `secrets/`; `POSTGRES_PASSWORD:-changeme` replaced with `:?` fail-loud syntax in docker-compose.yml; setup scripts updated
   6. **Ollama exposure audit** — COMPLETE: confirmed `127.0.0.1:11434` binding (not `0.0.0.0`); documented `OLLAMA_HOST=127.0.0.1` in README with shell profile and `launchctl` instructions; verify with `lsof -nP -iTCP:11434 -sTCP:LISTEN`
+
+## Debugging Workflow
+Claude is authorized to run these Docker commands directly without copy-paste:
+- `docker compose logs --tail=50 api` / `docker compose logs --tail=50 worker` — tail recent logs
+- `docker compose logs --since=5m api` — logs from the last N minutes
+- `docker compose exec api python -c "..."` — run a one-liner inside the api container
+- `docker compose ps` — check container health/status
+- `docker compose restart api` / `docker compose restart worker` — restart a service
+
+**Persistent log files** (volume-mounted to `./logs/`):
+- `logs/api.log` — API server; `logs/worker.log` — background worker
+- Logs survive container restarts; readable on host via `Read` tool
+- RotatingFileHandler: 5 MB × 3 backups per service
+
+**In-process error ring buffer:**
+- `GET /api/debug/recent-errors` — returns last 50 WARNING+ log entries in JSON
+- No file access needed; useful after a bad request without restarting
 
 ## Development Commands
 - **Venv:** `source backend/.venv/bin/activate` — always activate before running backend commands; after creating/recreating the venv run `pip install -e ".[dev]"` to install all deps (including `google-auth`, `google-api-python-client`, etc.)
