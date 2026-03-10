@@ -3,65 +3,30 @@
 See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
-- **Phase 1 (MVP): COMPLETE**
-- **Phase 2 — Notification + Gmail + Proactive Agent: COMPLETE**
-- **Phase 3: ReAct tool-calling agent + Apple Calendar impl COMPLETE**
-- **Phase 4: Memory architecture COMPLETE** — 206 backend tests, ruff clean
-- **Phase 5: Eisenhower matrix COMPLETE**
-- **Phase 6: MCP server integration COMPLETE** — 240 backend tests (all passing, no exclusions), ruff clean
-- **Apple Calendar status:** EventKit blocked by corporate MDM profile (Abacus IT / SentinelOne). Using `CALENDAR_BACKEND=google` instead. AppleCalendarReader code is complete but unusable in this environment without IT whitelisting.
-- All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
-- **All 333 backend + 21 frontend tests passing** with no exclusions
+- **Phases 1–7 complete** — ReAct agent, memory, Eisenhower matrix, MCP integration, security hardening; **333 backend + 21 frontend tests passing**, no exclusions, ruff clean
+- **Apple Calendar:** EventKit blocked by MDM (Abacus IT / SentinelOne) — using `CALENDAR_BACKEND=google`; AppleCalendarReader code complete but unusable without IT whitelisting. All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **mypy: 1 pre-existing unused-ignore in `tools/mcp/client.py`** — all other files clean. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
-  - **ReAct tool-calling agent** — LangGraph replaced with a manual LiteLLM tool-calling loop; LLM reasons across multiple turns, calling tools as needed before producing a final response
-  - WebSocket chat at `/api/chat/ws`
-  - LiteLLM routing with sensitive content → local Ollama model
-  - Rule-based content classifier (PII, financial, email, file content)
-  - TODO CRUD with 5 statuses (open, in_progress, blocked, complete, deferred) + priority-based ordering (API + tool)
-  - Explicit memory store with ILIKE search (API + tool)
-  - Settings with defaults (quiet hours, focus mode)
+  - **ReAct tool-calling agent** — manual LiteLLM tool-calling loop replacing LangGraph; LLM reasons across multiple turns before producing a final response; WebSocket chat at `/api/chat/ws`; LiteLLM routing with sensitive content → local Ollama model; rule-based content classifier (PII, financial, email, file content)
+  - TODO CRUD with 5 statuses (open, in_progress, blocked, complete, deferred) + priority-based ordering; explicit memory store with ILIKE search; settings with defaults (quiet hours, focus mode)
   - **Notification queue + badge system** — NotificationManager CRUD, full REST API (list, unread count, mark read, mark all read, mark completed), frontend inbox with badge + completion checkbox (strikethrough, hidden after end of day), 60s polling
   - **TODO tools** — `create_todos` (bulk; auto-classifies urgency/importance via LLM, asks user when uncertain), `list_todos` (filter: open/all/complete, shows quadrant labels), `update_todo_status` (by ID or ILIKE, bulk, synonym normalization), `update_todo_priority` (set urgent/important by ID or ILIKE), `get_priorities` (today's goals first, then fills to `priorities_max` via quadrant sort; `get_prioritized` supports `exclude_ids`), `set_today_focus` (mark task for today, soft cap 5), `get_today_focus` (list today's focused tasks)
-  - **Todo context panel** — ⓘ info icon button per task triggers mini-agent (`agents/todo_context.py`) that searches memory, Gmail, and calendar; optionally web-searches for external tasks; renders markdown summary with hyperlinks to mail/calendar/web items inline below the task; `POST /todos/{id}/context` endpoint; `getTodoContext()` in frontend API
+  - **Todo context panel** — ⓘ button per task triggers mini-agent (`agents/todo_context.py`) that searches memory, Gmail, and calendar; renders markdown summary with hyperlinks inline below the task; `POST /todos/{id}/context` endpoint; `getTodoContext()` in frontend API
   - **Eisenhower matrix** — `urgent` and `important` nullable Boolean columns on `Todo`; `get_prioritized()` and `list_visible()` use SQLAlchemy `case()` for quadrant sort; `set_urgency_importance()` on TodoManager; frontend TODO sidebar shows color-coded Q1/Q2/Q3/Q4 badges (Do Now / Schedule / Contain / Drop); Q3 renamed from "Delegate" to "Contain" for IC/family context; "Other Goals" section heading appears below Today's Goals divider when today tasks are present
-  - **Memory tools** — `remember`, `search_memory`
-  - **Gmail/Calendar tools** — `check_email` (accepts optional `max_results` param; output includes markdown links to Gmail threads), `check_calendar` (routes to Google or Apple based on `CALENDAR_BACKEND` setting; output includes markdown links to Google Calendar events via `html_link`)
+  - **Memory tools** — `remember`, `search_memory`; memory files `memory/SOUL.md` (personality) + `memory/USER.md` (profile, gitignored) read fresh each conversation
+  - **Gmail/Calendar tools** — `check_email` (optional `max_results`; markdown links to threads), `check_calendar` (routes to Google or Apple via `CALENDAR_BACKEND`; markdown links to events via `html_link`); both wrap sync API in `asyncio.to_thread()`; separate token files, same `credentials.json`
   - **Filesystem tools** — `read_file(path)` (up to 8,000 chars, binary-safe, `~` expansion), `search_files(query, directory, extensions)` (content search, extension filter, 500-file scan cap)
-  - **Memory files** — `memory/SOUL.md` (agent personality, checked in), `memory/USER.md` (user profile, gitignored); read fresh on every conversation start; no DB sync needed
-  - **build_system_prompt(session, user_name, user_message)** — assembles prompt from SOUL.md → USER.md (or `user_name` fallback) → semantically relevant memories (pgvector cosine search on `user_message`, falls back to newest-20 via `list_explicit()` when message absent or search returns empty); replaces hardcoded `_SYSTEM_PROMPT_TEMPLATE`
-  - **Persistent conversation history** — `ConversationMessage` table; `ConversationStore.load_history()` returns last 40 turns in chronological order; loaded once at WebSocket connect, saved after each exchange
-  - **Post-turn memory extraction** — `memory_extractor.extract_and_store()` fires as `asyncio.create_task()` after each response; LLM extracts memorable facts → stored to `Memory` table (case-insensitive dedup); uses `memory_extraction` LLM task (local model, temperature=0.0)
-  - **Gmail reader tool** — OAuth2 read-only, `list_unread()`, `search()`, `get_thread()` via `asyncio.to_thread()`
-  - **Calendar reader tool** — OAuth2 read-only, `list_upcoming(days)`, `search()`, `get_event()` via `asyncio.to_thread()`; separate token file from Gmail but reuses same `credentials.json`
-  - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize` (LLM), `queue_notifications` nodes; routing by task_type
-  - **Worker jobs** — APScheduler with `gmail_digest` (8am + 2pm) and `staleness_check` (8am) from `schedules.yml`; quiet hours enforcement decorator
-  - **TODO staleness detection** — `get_stale(days)` finds open/in_progress TODOs not updated in N days
-  - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges
-  - **MCP server integration** — `mcp_servers.yml` (opt-in, `enabled: false` by default); `MCPManager` spawns stdio subprocesses at lifespan start, stores tools in `app.state.mcp_tools`; `build_tools()` merges them after built-ins; failed servers log warning + skip (never crash startup); GitHub server pre-configured (`@modelcontextprotocol/server-github`, needs `GITHUB_TOKEN`)
-  - **Today's Goals (daily focus)** — `today_date: date | None` column on `Todo`; self-cleaning (filter is `today_date == date.today()`, yesterday's selections vanish at midnight); `list_today()` + `set_today()` on `TodoManager`; `GET /todos/today` + `POST /todos/{id}/today` (toggle) API endpoints; target/crosshair icon on each `TodoItem` (gold when active); "Today's Goals" section at top of `TodoPanel` with `N / 5` counter badge (gold at limit)
-  - **User-facing tool error surfacing** — two-layer approach: (1) tool exceptions formatted as `[TOOL_FAILED:{name}] ExcType: msg` so LLM can't silently ignore them + SOUL.md instruction to always report failures; (2) safety-net in `routes/chat.py` appends `⚠️ Some actions couldn't complete:` note after `run_agent()` if `context.tool_errors` is non-empty — guarantees user always sees failures
-  - **Live agent status line** — `run_agent()` accepts optional `status_callback: Callable[[str], Awaitable[None]]`; fires `"Thinking..."` before each LLM call and a tool-specific human-readable string (e.g. `"Checking Gmail for unread messages..."`) before each tool execution; `_format_tool_status(tool_name, args)` match block covers all 14 built-in tools + unknown fallback; `routes/chat.py` provides `_send_status` closure (wraps `ws.send_json({"type": "status", ...})` with `contextlib.suppress`); frontend `useChat` branches on `data.type`: `"status"` updates `currentStatus` state without adding to messages, `"response"` (or absent for backwards compat) clears it and adds the message; `ChatPanel` shows pulsing ✦ with live status text (fallback: `"Thinking..."`); `@keyframes sigil-pulse` in globals.css; outgoing WS messages now include `"type": "response"` field
-  - **Third-party logger suppression** — `main.py` lifespan pins a list of noisy third-party loggers to WARNING regardless of `LOG_LEVEL`: `LiteLLM`, `openai`, `googleapiclient`, `urllib3`, `httpx`, `h2`, `rustls`, `hyper_util`, `primp`, `cookie_store`; `h2`/`rustls`/`hyper_util`/`primp`/`cookie_store` come from the web_search tool's Rust HTTP/2 stack; setting a parent name (e.g. `"h2"`) suppresses all child loggers (`h2.client`, `h2.codec.*`, etc.); `LOG_LEVEL` in `.env` still controls all Istari loggers
-  - **`priorities_max` setting** — `settings.py` adds `priorities_max: int = 5`; used by `get_priorities` agent tool and `GET /todos/prioritized` REST endpoint; replaces hardcoded `3` in both callers; `TodoManager.get_prioritized(limit=N)` default unchanged (generic DB method); set `PRIORITIES_MAX=N` in `.env` to override
-  - **Resizable TODO sidebar** — drag handle on left edge resizes sidebar between 200–600px (default 300px); width persisted to `localStorage` (`istari-sidebar-width`); `col-resize` cursor + gold accent line on hover; implemented in `App.tsx` with `useRef`/`useEffect` mousedown/mousemove/mouseup on `window`
-  - **Proactive agent improvements** — `scan_gmail_node` uses `settings.gmail_max_results` instead of hardcoded 20; digest summary prompt expanded to 7-9 bullet points (was 2-5)
-  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling + manual ↻ button in header), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close; **markdown rendering** in assistant messages via `react-markdown` + `remark-gfm` (headers, bold, code blocks, lists, tables, blockquotes); user messages stay plain text
-- **DB migrations:** all tables exist and are up to date — most recent: `b2d4e6f8a0c2` (add today_date to todos)
-- **Gmail setup:** Run `python scripts/setup_gmail.py` after placing `credentials.json` in `secrets/` (Google Cloud OAuth Desktop App) — writes `secrets/gmail_token.json`
-- **Calendar setup:** Run `python scripts/setup_calendar.py` — reuses same `secrets/credentials.json`, writes `secrets/calendar_token.json`
-- **Custom slash commands:** `.claude/commands/test.md` → `/test` runs full CI suite (ruff, mypy, pytest, eslint, tsc, vitest) with a pass/fail summary table
-- **Next up:**
-  - Focus mode enforcement in proactive agent
-  - Context compaction — summarize conversation turns older than 40 before they're dropped
-  - Today's Goals: proactive morning prompt ("You have 0 tasks focused for today — want me to suggest some?")
-- **Security hardening (Phase 7 — COMPLETE):**
-  1. **Docker networking** — COMPLETE: removed `ports` from `postgres` and `api`; explicit `internal` bridge network; `scripts/prod.sh` uses base compose only
-  2. **Authentication** — COMPLETE: `itsdangerous` signed cookies; `AuthMiddleware` (pure ASGI); `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; WS checks `ws.cookies` before accept; close code 4401 triggers frontend login wall; auth disabled when `APP_SECRET_KEY` unset
-  3. **nginx security headers** — COMPLETE: extracted to `frontend/nginx.conf`; `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, CSP whitelist; HSTS omitted (nginx can't detect HTTPS vs HTTP)
-  4. **Rate limiting on LLM endpoints** — COMPLETE: per-connection sliding-window rate limiter (`_RateLimiter`, deque + `time.monotonic`); 20 msg/60s on WebSocket; REST endpoints skipped (not needed for local use)
-  5. **Audit credential files + fix default password** — COMPLETE: `secrets/` directory (gitignored); `credentials.json`, `gmail_token.json`, `calendar_token.json` all moved under `secrets/`; `POSTGRES_PASSWORD:-changeme` replaced with `:?` fail-loud syntax in docker-compose.yml; setup scripts updated
-  6. **Ollama exposure audit** — COMPLETE: confirmed `127.0.0.1:11434` binding (not `0.0.0.0`); documented `OLLAMA_HOST=127.0.0.1` in README with shell profile and `launchctl` instructions; verify with `lsof -nP -iTCP:11434 -sTCP:LISTEN`
+  - **build_system_prompt(session, user_name, user_message)** — assembles SOUL.md → USER.md (or `user_name` fallback) → memories via pgvector cosine search, falling back to newest-20 via `list_explicit()`
+  - **Persistent conversation history** — `ConversationMessage` table; last 40 turns loaded at connect, saved after each exchange; **post-turn memory extraction** fires as `asyncio.create_task()` (local model, temperature=0.0, case-insensitive dedup)
+  - **LangGraph proactive agent** — background graph with `scan_gmail`, `check_staleness`, `summarize`, `queue_notifications` nodes; APScheduler runs `gmail_digest` (8am + 2pm) and `staleness_check` (8am); `get_stale(days)` finds TODOs not updated in N days
+  - **Digest system** — DigestManager CRUD, REST API (`GET /digests/`, `POST /digests/{id}/review`), frontend DigestPanel with expand/collapse + source badges; **MCP integration** — `mcp_servers.yml` (opt-in); `MCPManager` spawns stdio subprocesses at lifespan, tools merged into `app.state.mcp_tools`; failed servers skip startup; GitHub server pre-configured (needs `GITHUB_TOKEN`)
+  - **Today's Goals (daily focus)** — `today_date: date | None` column on `Todo`; self-cleaning (filter is `today_date == date.today()`, yesterday's selections vanish at midnight); `list_today()` + `set_today()` on `TodoManager`; `GET /todos/today` + `POST /todos/{id}/today` (toggle); gold target icon per task; "Today's Goals" section at top of `TodoPanel` with `N / 5` counter badge
+  - **User-facing tool errors** — `[TOOL_FAILED:{name}] ExcType: msg` format so LLM can't ignore them; `routes/chat.py` safety-net appends `⚠️ Some actions couldn't complete:` if `context.tool_errors` non-empty; **live status line** — `status_callback` on `run_agent()`, `_format_tool_status(tool_name, args)`, WS `{"type": "status"}`, frontend pulsing ✦
+  - **Third-party logger suppression** — lifespan pins LiteLLM, Google, HTTP stack loggers to WARNING; parent name suppresses child loggers; `LOG_LEVEL` controls Istari loggers; `priorities_max: int = 5` in `settings.py` used by `get_priorities` + `GET /todos/prioritized` (set via `PRIORITIES_MAX=N`); `scan_gmail_node` uses `settings.gmail_max_results`; digest summary 7-9 bullets
+  - Frontend: WebSocket chat with reconnection, TODO sidebar with live refresh (WebSocket signals + 15s polling + manual ↻ button in header), settings panel, notification inbox with unread badge, digest panel; full dark wizard aesthetic (deep navy + gold, Cinzel font); TODO inline edit modal with all fields + Save/Escape/backdrop-close; **markdown rendering** in assistant messages via `react-markdown` + `remark-gfm` (headers, bold, code blocks, lists, tables, blockquotes); user messages stay plain text; resizable sidebar (200–600px, persisted to `localStorage`)
+- **DB migrations:** up to date — most recent: `b2d4e6f8a0c2` (add today_date to todos); **Gmail setup:** `python scripts/setup_gmail.py` (place `credentials.json` in `secrets/`); **Calendar setup:** `python scripts/setup_calendar.py` (reuses same credentials); **slash commands:** `/test` runs full CI suite
+- **Next up:** focus mode in proactive agent; context compaction (summarize turns >40); Today's Goals morning prompt
+- **Security hardening (Phase 7):** Docker networking (no exposed ports, internal bridge); auth via `itsdangerous` signed cookies + pure ASGI `AuthMiddleware` (`POST /api/auth/login|logout`, `GET /api/auth/me`; close code 4401; disabled when `APP_SECRET_KEY` unset); nginx security headers in `frontend/nginx.conf` (`X-Frame-Options`, `X-Content-Type-Options`, CSP); rate limiter (`_RateLimiter`, 20 msg/60s WS); `secrets/` dir (gitignored) for all OAuth tokens; `POSTGRES_PASSWORD` uses `:?` fail-loud; Ollama bound to `127.0.0.1:11434`
 
 ## Debugging Workflow
 Claude is authorized to run these Docker commands directly without copy-paste:
@@ -140,18 +105,6 @@ Claude is authorized to run these Docker commands directly without copy-paste:
 - **Gitignore USER.md by default** — contains personal data; SOUL.md may be checked in (it's agent config, not personal data)
 - **Post-turn extraction is async fire-and-forget** — does not block the WebSocket response; runs as `asyncio.create_task()`; failures logged but not surfaced to user
 - **Conversation history persistence**: `ConversationMessage(id, session_id, role, content, created_at)` table; load last 40 turns on reconnect; context compaction (summarize turns > 40) deferred to later phase
-
-### Phase 1 Design Decisions
-- **Vector dimension 768** (nomic-embed-text via Ollama), not 1536 (OpenAI)
-- **LLM-based intent classification** — `classify_node` coerces `extracted_content` to string (LLMs may return JSON objects instead of plain strings); intent and extracted are set atomically to avoid partial-assignment on parse errors
-- **LangGraph graph nodes are pure** — no DB writes in graph; all side effects in the WebSocket handler
-- **Sensitive content silently routes to local model** — no user prompt UX in Phase 1 (outline spec calls for prompt in future)
-- **SQLite + aiosqlite for unit tests**, PostgreSQL for integration tests; conftest.py patches Vector/ARRAY/JSON → Text for SQLite compat
-- **TodoStore Protocol** defined in `adapter.py` for future adapters, satisfied via structural typing
-- **WebSocket for chat** at `/api/chat/ws`, REST for everything else
-- **Annotated[Depends]** pattern for FastAPI dependency injection (avoids ruff B008)
-- **Prop drilling in React** — simpler than context for 3 communicating components
-- **Conversation history in-memory** per WebSocket connection (Phase 1; persistent history in future)
 
 ## Key File Locations
 - Backend entry points: `backend/src/istari/api/main.py` (FastAPI app), `backend/src/istari/worker/main.py` (APScheduler)
