@@ -10,7 +10,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ onTodoCreated, onRegisterSend, onAuthFailure }: ChatPanelProps) {
-  const { messages, isLoading, isConnected, sendMessage } = useChat({
+  const { messages, isLoading, isConnected, sendMessage, currentStatus } = useChat({
     onTodoCreated,
     onAuthFailure,
   });
@@ -62,8 +62,16 @@ export function ChatPanel({ onTodoCreated, onRegisterSend, onAuthFailure }: Chat
             fontSize: "0.8125rem",
           }}
         >
-          <span style={{ color: "var(--accent)" }}>✦</span>
-          Istari is thinking...
+          <span
+            style={{
+              color: "var(--accent)",
+              animation: "sigil-pulse 1.4s ease-in-out infinite",
+              display: "inline-block",
+            }}
+          >
+            ✦
+          </span>
+          {currentStatus || "Thinking..."}
         </div>
       )}
 

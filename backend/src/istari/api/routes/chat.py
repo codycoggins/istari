@@ -1,6 +1,7 @@
 """Chat/conversation endpoints (WebSocket + REST)."""
 
 import asyncio
+import contextlib
 import datetime
 import time
 import uuid
@@ -79,6 +80,7 @@ async def chat_ws(ws: WebSocket) -> None:
 
             if not rate_limiter.is_allowed():
                 await ws.send_json({
+                    "type": "response",
                     "id": str(uuid.uuid4()),
                     "role": "assistant",
                     "content": (
@@ -95,6 +97,10 @@ async def chat_ws(ws: WebSocket) -> None:
             context = AgentContext()
             mcp_tools = getattr(ws.app.state, "mcp_tools", [])
 
+            async def _send_status(text: str) -> None:
+                with contextlib.suppress(Exception):
+                    await ws.send_json({"type": "status", "content": text})
+
             async with async_session_factory() as session:
                 tools = build_tools(session, context, mcp_tools=mcp_tools)
                 system_prompt = await build_system_prompt(
@@ -106,6 +112,7 @@ async def chat_ws(ws: WebSocket) -> None:
                     tools,
                     system_prompt=system_prompt,
                     context=context,
+                    status_callback=_send_status,
                 )
 
             if context.tool_errors:
@@ -126,6 +133,7 @@ async def chat_ws(ws: WebSocket) -> None:
             )
 
             await ws.send_json({
+                "type": "response",
                 "id": str(uuid.uuid4()),
                 "role": "assistant",
                 "content": response_text,

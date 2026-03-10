@@ -96,6 +96,11 @@
   50%       { opacity: 0.4; transform: scale(0.8); }
 }
 
+@keyframes sigil-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1)    translateY(0); }
+  50%       { opacity: 0.5; transform: scale(1.15) translateY(-1px); }
+}
+
 /* ── Markdown body ──────────────────────────────────── */
 .markdown-body {
   /* Reset first/last child margins so bubble padding controls spacing */

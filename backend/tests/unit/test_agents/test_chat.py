@@ -3,7 +3,7 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from istari.agents.chat import build_tools, run_agent
+from istari.agents.chat import _format_tool_status, build_tools, run_agent
 from istari.agents.tools.base import AgentContext
 
 # ── Mock response helpers ─────────────────────────────────────────────────────
@@ -180,3 +180,191 @@ class TestBuildTools:
         tools = build_tools(db_session, ctx)
         names = [t.name for t in tools]
         assert len(names) == len(set(names))
+
+
+# ── _format_tool_status ───────────────────────────────────────────────────────
+
+
+class TestFormatToolStatus:
+    def test_check_email_no_query(self):
+        assert _format_tool_status("check_email", {}) == "Checking Gmail for unread messages..."
+
+    def test_check_email_with_query(self):
+        result = _format_tool_status("check_email", {"query": "invoice"})
+        assert result == "Searching Gmail for 'invoice'..."
+
+    def test_check_calendar_no_query(self):
+        assert _format_tool_status("check_calendar", {}) == "Checking your calendar..."
+
+    def test_check_calendar_with_query(self):
+        result = _format_tool_status("check_calendar", {"query": "standup"})
+        assert result == "Searching calendar for 'standup'..."
+
+    def test_create_todos_single(self):
+        result = _format_tool_status("create_todos", {"titles": ["Buy groceries"]})
+        assert result == "Creating task: 'Buy groceries'..."
+
+    def test_create_todos_multiple(self):
+        result = _format_tool_status("create_todos", {"titles": ["A", "B", "C"]})
+        assert result == "Creating 3 tasks..."
+
+    def test_create_todos_empty(self):
+        result = _format_tool_status("create_todos", {"titles": []})
+        assert result == "Creating 0 tasks..."
+
+    def test_list_todos_open(self):
+        result = _format_tool_status("list_todos", {"filter": "open"})
+        assert result == "Looking at your open task list..."
+
+    def test_list_todos_all(self):
+        result = _format_tool_status("list_todos", {"filter": "all"})
+        assert result == "Looking at your all task list..."
+
+    def test_list_todos_complete(self):
+        result = _format_tool_status("list_todos", {"filter": "complete"})
+        assert result == "Looking at your completed task list..."
+
+    def test_list_todos_default(self):
+        result = _format_tool_status("list_todos", {})
+        assert result == "Looking at your open task list..."
+
+    def test_update_todo_status(self):
+        result = _format_tool_status("update_todo_status", {"status": "complete"})
+        assert result == "Updating task status to 'complete'..."
+
+    def test_update_todo_priority(self):
+        assert _format_tool_status("update_todo_priority", {}) == "Updating task priority..."
+
+    def test_get_priorities(self):
+        assert _format_tool_status("get_priorities", {}) == "Getting your priorities..."
+
+    def test_set_today_focus(self):
+        assert _format_tool_status("set_today_focus", {}) == "Setting today's focus tasks..."
+
+    def test_get_today_focus(self):
+        assert _format_tool_status("get_today_focus", {}) == "Getting today's focus tasks..."
+
+    def test_remember_with_fact(self):
+        result = _format_tool_status("remember", {"fact": "I like tea"})
+        assert result == "Saving to memory: 'I like tea'..."
+
+    def test_remember_no_fact(self):
+        assert _format_tool_status("remember", {}) == "Saving to memory..."
+
+    def test_search_memory_with_query(self):
+        result = _format_tool_status("search_memory", {"query": "dentist"})
+        assert result == "Searching memory for 'dentist'..."
+
+    def test_search_memory_no_query(self):
+        assert _format_tool_status("search_memory", {}) == "Searching memory..."
+
+    def test_read_file_with_path(self):
+        result = _format_tool_status("read_file", {"path": "/tmp/notes.txt"})
+        assert result == "Reading file: /tmp/notes.txt..."
+
+    def test_read_file_no_path(self):
+        assert _format_tool_status("read_file", {}) == "Reading file..."
+
+    def test_search_files_with_query_and_dir(self):
+        result = _format_tool_status("search_files", {"query": "budget", "directory": "~/docs"})
+        assert result == "Searching files in ~/docs for 'budget'..."
+
+    def test_search_files_with_query_no_dir(self):
+        result = _format_tool_status("search_files", {"query": "budget"})
+        assert result == "Searching files for 'budget'..."
+
+    def test_search_files_no_args(self):
+        assert _format_tool_status("search_files", {}) == "Searching files..."
+
+    def test_unknown_tool_fallback(self):
+        result = _format_tool_status("some_custom_tool", {})
+        assert result == "Running Some Custom Tool..."
+
+    def test_unknown_tool_single_word(self):
+        result = _format_tool_status("analyze", {})
+        assert result == "Running Analyze..."
+
+    def test_create_todos_title_truncated_at_40(self):
+        long_title = "A" * 50
+        result = _format_tool_status("create_todos", {"titles": [long_title]})
+        assert "A" * 40 in result
+        assert "A" * 41 not in result
+
+
+# ── status_callback in run_agent ─────────────────────────────────────────────
+
+
+class TestStatusCallback:
+    async def test_thinking_fires_before_llm_call(self, db_session):
+        """status_callback("Thinking...") is called once before the LLM call."""
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+        callback = AsyncMock()
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = _text_response("Done!")
+            await run_agent(
+                "hello", [], tools,
+                system_prompt="You are Istari.",
+                status_callback=callback,
+            )
+
+        # At minimum, "Thinking..." was sent once before the single LLM call
+        assert callback.call_count >= 1
+        assert callback.call_args_list[0].args[0] == "Thinking..."
+
+    async def test_tool_status_fires_before_tool_execution(self, db_session):
+        """For a tool call turn, tool-specific status fires after Thinking..."""
+        from istari.agents.tools.base import AgentTool
+
+        executed = []
+
+        async def my_tool() -> str:
+            executed.append("ran")
+            return "done"
+
+        tool = AgentTool(
+            name="get_priorities",
+            description="Get priorities",
+            parameters={"type": "object", "properties": {}, "required": []},
+            fn=my_tool,
+        )
+
+        call_resp = _tool_response("get_priorities", {})
+        final = _text_response("Here are your priorities.")
+        callback_calls: list[str] = []
+
+        async def capturing_callback(text: str) -> None:
+            callback_calls.append(text)
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = [call_resp, final]
+            await run_agent(
+                "what are my priorities?", [], [tool],
+                system_prompt="You are Istari.",
+                status_callback=capturing_callback,
+            )
+
+        # turn 1: "Thinking..." then "Getting your priorities..."
+        # turn 2: "Thinking..." then final text (no tool status)
+        assert "Thinking..." in callback_calls
+        assert "Getting your priorities..." in callback_calls
+        # Tool status comes after the first "Thinking..."
+        thinking_idx = callback_calls.index("Thinking...")
+        prio_idx = callback_calls.index("Getting your priorities...")
+        assert thinking_idx < prio_idx
+
+    async def test_none_callback_does_not_raise(self, db_session):
+        """Passing no callback (None) should work exactly as before."""
+        ctx = AgentContext()
+        tools = build_tools(db_session, ctx)
+
+        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = _text_response("All good.")
+            result = await run_agent(
+                "test", [], tools,
+                system_prompt="You are Istari.",
+                status_callback=None,
+            )
+
+        assert result == "All good."

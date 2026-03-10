@@ -23,6 +23,7 @@ vi.mock("../../src/hooks/useChat", () => ({
     isLoading: false,
     isConnected: true,
     sendMessage: mockSendMessage,
+    currentStatus: "",
   }),
 }));
 

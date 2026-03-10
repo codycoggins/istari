@@ -29,6 +29,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     root = logging.getLogger()
 
+    # LiteLLM's Python logger is separate from suppress_debug_info (which only
+    # kills print() calls). Pin it to WARNING so it never floods our logs.
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
     # Rotating file handler — survives container restarts via volume mount
     log_dir = Path("/app/logs")
     if log_dir.exists():

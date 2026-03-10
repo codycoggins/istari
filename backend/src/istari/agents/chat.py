@@ -20,6 +20,7 @@ so the agent has no direct DB access — all persistence goes through tool funct
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -29,6 +30,54 @@ if TYPE_CHECKING:
 from istari.agents.tools.base import AgentContext, AgentTool
 
 logger = logging.getLogger(__name__)
+
+
+def _format_tool_status(tool_name: str, args: dict[str, Any]) -> str:
+    """Return a human-readable status string for a tool call."""
+    match tool_name:
+        case "check_email":
+            q = args.get("query")
+            return f"Searching Gmail for '{q}'..." if q else "Checking Gmail for unread messages..."
+        case "check_calendar":
+            q = args.get("query")
+            return f"Searching calendar for '{q}'..." if q else "Checking your calendar..."
+        case "create_todos":
+            titles = args.get("titles", [])
+            n = len(titles)
+            return f"Creating task: '{titles[0][:40]}'..." if n == 1 else f"Creating {n} tasks..."
+        case "list_todos":
+            f = args.get("filter", "open")
+            label = {"open": "open", "all": "all", "complete": "completed"}.get(f, f)
+            return f"Looking at your {label} task list..."
+        case "update_todo_status":
+            status = args.get("status", "")
+            return f"Updating task status to '{status}'..."
+        case "update_todo_priority":
+            return "Updating task priority..."
+        case "get_priorities":
+            return "Getting your priorities..."
+        case "set_today_focus":
+            return "Setting today's focus tasks..."
+        case "get_today_focus":
+            return "Getting today's focus tasks..."
+        case "remember":
+            fact = args.get("fact", "")
+            return f"Saving to memory: '{fact[:40]}'..." if fact else "Saving to memory..."
+        case "search_memory":
+            q = args.get("query", "")
+            return f"Searching memory for '{q}'..." if q else "Searching memory..."
+        case "read_file":
+            path = args.get("path", "")
+            return f"Reading file: {path}..." if path else "Reading file..."
+        case "search_files":
+            q = args.get("query", "")
+            d = args.get("directory", "")
+            if d:
+                return f"Searching files in {d} for '{q}'..."
+            return f"Searching files for '{q}'..." if q else "Searching files..."
+        case _:
+            label = tool_name.replace("_", " ").title()
+            return f"Running {label}..."
 
 _MAX_TURNS = 8
 _MAX_PROMPT_MEMORIES = 20
@@ -126,6 +175,7 @@ async def run_agent(
     *,
     system_prompt: str,
     context: AgentContext | None = None,
+    status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> str:
     """Run the ReAct agent loop and return the final response text."""
     from istari.llm.router import completion
@@ -144,6 +194,10 @@ async def run_agent(
 
     for turn in range(_MAX_TURNS):
         logger.debug("Agent turn %d/%d | %d msgs", turn + 1, _MAX_TURNS, len(messages))
+
+        if status_callback is not None:
+            logger.debug("Status | Thinking...")
+            await status_callback("Thinking...")
 
         try:
             result = await completion(
@@ -186,7 +240,16 @@ async def run_agent(
         for tc in msg.tool_calls:
             tool_name = tc.function.name
             tool = tool_map.get(tool_name)
-            logger.debug("Tool args | %s | %s", tool_name, tc.function.arguments)
+            try:
+                args: dict[str, Any] = json.loads(tc.function.arguments)
+            except json.JSONDecodeError:
+                args = {}
+            logger.info("Tool start | %-24s | %s", tool_name, args)
+            if status_callback is not None:
+                status_text = _format_tool_status(tool_name, args)
+                logger.debug("Status    | %s", status_text)
+                await status_callback(status_text)
+            logger.info("Tool args | %s | %s", tool_name, tc.function.arguments)
 
             if tool is None:
                 logger.warning("Tool called but not found: %r", tool_name)
@@ -194,7 +257,6 @@ async def run_agent(
             else:
                 t0 = time.monotonic()
                 try:
-                    args = json.loads(tc.function.arguments)
                     tool_result = await tool.fn(**args)
                     elapsed_ms = (time.monotonic() - t0) * 1000
                     logger.info(
@@ -210,7 +272,7 @@ async def run_agent(
                     if context is not None:
                         context.tool_errors.append(f"{tool_name}: {exc}")
 
-            logger.debug("Tool result | %s | %r", tool_name, tool_result[:200])
+            logger.info("Tool result | %s | %r", tool_name, tool_result[:200])
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,

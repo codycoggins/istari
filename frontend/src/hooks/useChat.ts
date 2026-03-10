@@ -11,6 +11,7 @@ export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseCh
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>("");
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef(0);
@@ -28,6 +29,12 @@ export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseCh
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
+      if (data.type === "status") {
+        setCurrentStatus(data.content ?? "");
+        return;
+      }
+
       const msg: Message = {
         id: data.id,
         role: "assistant",
@@ -38,6 +45,7 @@ export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseCh
       };
       setMessages((prev) => [...prev, msg]);
       setIsLoading(false);
+      setCurrentStatus("");
 
       if (data.todo_created || data.todo_updated) {
         callbacksRef.current.onTodoCreated?.();
@@ -88,11 +96,12 @@ export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseCh
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
+      setCurrentStatus("");
 
       wsRef.current.send(JSON.stringify({ message: content }));
     },
     [],
   );
 
-  return { messages, isLoading, isConnected, sendMessage };
+  return { messages, isLoading, isConnected, sendMessage, currentStatus };
 }
