@@ -40,3 +40,7 @@ export async function updateTodo(id: number, updates: TodoUpdatePayload): Promis
 export async function toggleTodayFocus(id: number): Promise<Todo> {
   return apiFetch(`/todos/${id}/today`, { method: "POST" });
 }
+
+export async function getTodoContext(id: number): Promise<{ context: string }> {
+  return apiFetch(`/todos/${id}/context`, { method: "POST" });
+}

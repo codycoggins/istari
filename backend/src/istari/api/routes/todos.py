@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from istari.api.deps import get_db
 from istari.api.schemas import (
     PrioritizedTodosResponse,
+    TodoContextResponse,
     TodoCreate,
     TodoListResponse,
     TodoResponse,
@@ -88,6 +89,18 @@ async def update_todo(todo_id: int, body: TodoUpdate, db: DB) -> TodoResponse:
     await db.commit()
     await db.refresh(todo)
     return TodoResponse.model_validate(todo)
+
+
+@router.post("/{todo_id}/context", response_model=TodoContextResponse)
+async def get_todo_context(todo_id: int, db: DB) -> TodoContextResponse:
+    from istari.agents.todo_context import get_todo_context as _gather_context
+
+    mgr = TodoManager(db)
+    todo = await mgr.get(todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    context_text = await _gather_context(todo.title, db)
+    return TodoContextResponse(context=context_text)
 
 
 @router.post("/{todo_id}/complete", response_model=TodoResponse)

@@ -53,6 +53,10 @@ class PrioritizedTodosResponse(BaseModel):
     reasoning: str | None = None
 
 
+class TodoContextResponse(BaseModel):
+    context: str
+
+
 # --- Memory schemas ---
 
 

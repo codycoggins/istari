@@ -1,5 +1,8 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Todo } from "../../types/todo";
+import { getTodoContext } from "../../api/todos";
 
 interface TodoItemProps {
   todo: Todo;
@@ -24,25 +27,53 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
 export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: TodoItemProps) {
   const [pencilHovered, setPencilHovered] = useState(false);
   const [targetHovered, setTargetHovered] = useState(false);
+  const [contextHovered, setContextHovered] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextText, setContextText] = useState<string | null>(null);
   const isComplete = todo.status === "complete";
   const todayStr = new Date().toISOString().slice(0, 10);
   const isToday = todo.today_date === todayStr;
   const quadrant = getQuadrant(todo.urgent, todo.important);
   const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked");
 
+  async function handleContextClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (contextOpen) {
+      setContextOpen(false);
+      return;
+    }
+    setContextOpen(true);
+    if (contextText !== null) return; // already fetched
+    setContextLoading(true);
+    try {
+      const result = await getTodoContext(todo.id);
+      setContextText(result.context);
+    } catch {
+      setContextText("Failed to gather context. Please try again.");
+    } finally {
+      setContextLoading(false);
+    }
+  }
+
   return (
     <div
       style={{
-        padding: "0.5rem 0.625rem",
         marginBottom: "0.3125rem",
         borderRadius: "6px",
         border: "1px solid var(--border-subtle)",
         background: isComplete ? "transparent" : "var(--bg-elevated)",
+        opacity: isComplete ? 0.4 : 1,
+        transition: "opacity 0.15s",
+        overflow: "hidden",
+      }}
+    >
+    <div
+      style={{
+        padding: "0.5rem 0.625rem",
         display: "flex",
         alignItems: "flex-start",
         gap: "0.5rem",
-        opacity: isComplete ? 0.4 : 1,
-        transition: "opacity 0.15s",
       }}
     >
       <input
@@ -171,6 +202,47 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: 
         </button>
       )}
 
+      {/* Context button */}
+      {!isComplete && (
+        <button
+          onClick={handleContextClick}
+          onMouseEnter={() => setContextHovered(true)}
+          onMouseLeave={() => setContextHovered(false)}
+          aria-label="Get context for task"
+          title="Gather context"
+          style={{
+            background: "none",
+            border: "none",
+            padding: "0.1rem",
+            cursor: "pointer",
+            flexShrink: 0,
+            color: contextOpen
+              ? "var(--accent)"
+              : contextHovered
+                ? "var(--text-secondary)"
+                : "var(--text-muted)",
+            transition: "color 0.15s",
+            lineHeight: 1,
+            marginTop: "0.05rem",
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
+          </svg>
+        </button>
+      )}
+
       {/* Pencil / edit button */}
       <button
         onClick={(e) => {
@@ -206,6 +278,35 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: 
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
       </button>
+    </div>
+
+    {/* Inline context panel */}
+    {contextOpen && (
+      <div
+        style={{
+          borderTop: "1px solid var(--border-subtle)",
+          padding: "0.625rem 0.875rem 0.75rem",
+          fontSize: "0.75rem",
+          lineHeight: 1.6,
+          color: "var(--text-secondary)",
+        }}
+      >
+        {contextLoading ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", color: "var(--text-muted)" }}>
+            <span style={{ color: "var(--accent)", animation: "sigil-pulse 1.4s ease-in-out infinite", display: "inline-block" }}>
+              ✦
+            </span>
+            Gathering context...
+          </div>
+        ) : (
+          <div className="markdown-body context-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {contextText ?? ""}
+            </ReactMarkdown>
+          </div>
+        )}
+      </div>
+    )}
     </div>
   );
 }
