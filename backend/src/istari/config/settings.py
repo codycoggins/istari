@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     gmail_token_path: str = "secrets/gmail_token.json"
-    gmail_max_results: int = 20
+    gmail_max_results: int = 50
     calendar_token_path: str = "secrets/calendar_token.json"
     calendar_max_results: int = 10
     # "google" uses OAuth CalendarReader; "apple" uses EventKit (macOS only)
@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     user_name: str = ""
 
     # Worker
-    quiet_hours_start: int = 21
-    quiet_hours_end: int = 7
+    quiet_hours_start: int = 22
+    quiet_hours_end: int = 8
     stale_todo_days: int = 3
 
     # Backup
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     backup_destination_type: str = "local"          # "local"; future: "s3"
     backup_destination_path: str = ""               # required when enabled; set in .env
     backup_passphrase: str = ""                     # required when enabled; set in .env
-    backup_retention_days: int = 7
+    backup_retention_days: int = 30
     backup_pg_container: str = "istari-postgres-1"  # empty = call pg_dump directly
 
     # Auth — set both to enable password protection; leave empty to disable (local dev)
