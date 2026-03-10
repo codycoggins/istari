@@ -57,7 +57,7 @@ def main() -> None:
         fh = logging.handlers.RotatingFileHandler(
             log_dir / "worker.log",
             maxBytes=5 * 1024 * 1024,  # 5 MB
-            backupCount=3,
+            backupCount=10,
         )
         fh.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATEFMT))
         logging.getLogger().addHandler(fh)

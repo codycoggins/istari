@@ -15,4 +15,4 @@ if [ ! -f .env ]; then
 fi
 
 echo "Starting Istari (dev mode, caffeinate -s active on AC power)..."
-caffeinate -s docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build "$@"
+caffeinate -s docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build --detach "$@"

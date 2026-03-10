@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     quiet_hours_end: int = 8
     stale_todo_days: int = 3
 
+    # TODO priorities
+    priorities_max: int = 5  # max tasks returned by get_priorities tool + /todos/prioritized
+
     # Backup
     backup_enabled: bool = False
     backup_destination_type: str = "local"          # "local"; future: "s3"

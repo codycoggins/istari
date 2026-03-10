@@ -29,9 +29,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     root = logging.getLogger()
 
-    # LiteLLM's Python logger is separate from suppress_debug_info (which only
-    # kills print() calls). Pin it to WARNING so it never floods our logs.
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    # Pin noisy third-party loggers to WARNING regardless of LOG_LEVEL.
+    # - LiteLLM: suppress_debug_info kills print()s but not the Python logger
+    # - openai: HTTP-level request/response traces from the OpenAI SDK
+    # - googleapiclient: discovery-doc fetches on every Calendar/Gmail call
+    # - urllib3/httpx: connection pool chatter
+    # - h2/rustls/hyper_util/primp/cookie_store: Rust HTTP/2 client internals
+    #   emitted by the web_search tool's underlying primp/reqwest stack
+    for _noisy_logger in [
+        "LiteLLM",
+        "openai",
+        "googleapiclient",
+        "urllib3",
+        "httpx",
+        "h2",
+        "rustls",
+        "hyper_util",
+        "primp",
+        "cookie_store",
+    ]:
+        logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
 
     # Rotating file handler — survives container restarts via volume mount
     log_dir = Path("/app/logs")

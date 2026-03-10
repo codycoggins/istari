@@ -14,6 +14,7 @@ from istari.api.schemas import (
     TodoResponse,
     TodoUpdate,
 )
+from istari.config.settings import settings
 from istari.tools.todo.manager import TodoManager
 
 router = APIRouter(prefix="/todos", tags=["todos"])
@@ -62,7 +63,7 @@ async def toggle_today(todo_id: int, db: DB) -> TodoResponse:
 @router.get("/prioritized", response_model=PrioritizedTodosResponse)
 async def get_prioritized(db: DB) -> PrioritizedTodosResponse:
     mgr = TodoManager(db)
-    todos = await mgr.get_prioritized(limit=3)
+    todos = await mgr.get_prioritized(limit=settings.priorities_max)
     return PrioritizedTodosResponse(
         todos=[TodoResponse.model_validate(t) for t in todos],
     )

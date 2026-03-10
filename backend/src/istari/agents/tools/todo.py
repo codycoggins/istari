@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from istari.config.settings import settings
 from istari.llm.router import completion
 from istari.models.todo import Todo, TodoStatus
 from istari.tools.todo.manager import TodoManager
@@ -265,11 +266,12 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
 
     async def get_priorities() -> str:
         mgr = TodoManager(session)
+        max_tasks = settings.priorities_max
         today_todos = await mgr.list_today()
-        selected = today_todos[:3]
-        if len(selected) < 3:
+        selected = today_todos[:max_tasks]
+        if len(selected) < max_tasks:
             exclude = [t.id for t in selected]
-            needed = 3 - len(selected)
+            needed = max_tasks - len(selected)
             extra = await mgr.get_prioritized(limit=needed, exclude_ids=exclude)
             selected = selected + extra
         if not selected:
@@ -378,7 +380,7 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
         AgentTool(
             name="get_priorities",
             description=(
-                "Return the top 3 highest-priority active TODOs, sorted by Eisenhower "
+                "Return the top highest-priority active TODOs, sorted by Eisenhower "
                 "quadrant (Q1 first) then explicit priority, due date, and recency."
             ),
             parameters={"type": "object", "properties": {}, "required": []},
