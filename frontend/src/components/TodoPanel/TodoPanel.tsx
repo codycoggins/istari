@@ -365,6 +365,7 @@ interface TodoPanelProps {
   onSave: (id: number, updates: TodoUpdatePayload) => Promise<void>;
   onToggleToday?: (id: number) => void;
   onAskPriorities?: () => void;
+  onRefresh?: () => void;
   settings?: Record<string, string>;
   onToggleFocusMode?: (enabled: boolean) => void;
 }
@@ -377,6 +378,7 @@ export function TodoPanel({
   onSave,
   onToggleToday,
   onAskPriorities,
+  onRefresh,
   settings,
   onToggleFocusMode,
 }: TodoPanelProps) {
@@ -414,30 +416,62 @@ export function TodoPanel({
           >
             Tasks
           </span>
-          <button
-            onClick={onAskPriorities}
-            style={{
-              background: "none",
-              border: "1px solid var(--border-default)",
-              borderRadius: "5px",
-              padding: "0.25rem 0.625rem",
-              cursor: "pointer",
-              fontSize: "0.6875rem",
-              color: "var(--text-secondary)",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-default)";
-              e.currentTarget.style.color = "var(--text-secondary)";
-            }}
-          >
-            Prioritize
-          </button>
+          <div style={{ display: "flex", gap: "0.375rem" }}>
+            <button
+              onClick={onRefresh}
+              aria-label="Refresh tasks"
+              disabled={isLoading}
+              title="Refresh"
+              style={{
+                background: "none",
+                border: "1px solid var(--border-default)",
+                borderRadius: "5px",
+                padding: "0.25rem 0.5rem",
+                cursor: isLoading ? "not-allowed" : "pointer",
+                fontSize: "0.75rem",
+                color: isLoading ? "var(--text-muted)" : "var(--text-secondary)",
+                fontFamily: "inherit",
+                lineHeight: 1,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.borderColor = "var(--border-accent)";
+                  e.currentTarget.style.color = "var(--accent)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-default)";
+                e.currentTarget.style.color = isLoading ? "var(--text-muted)" : "var(--text-secondary)";
+              }}
+            >
+              ↻
+            </button>
+            <button
+              onClick={onAskPriorities}
+              style={{
+                background: "none",
+                border: "1px solid var(--border-default)",
+                borderRadius: "5px",
+                padding: "0.25rem 0.625rem",
+                cursor: "pointer",
+                fontSize: "0.6875rem",
+                color: "var(--text-secondary)",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-accent)";
+                e.currentTarget.style.color = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-default)";
+                e.currentTarget.style.color = "var(--text-secondary)";
+              }}
+            >
+              Prioritize
+            </button>
+          </div>
         </div>
 
         {/* Today's Goals section */}

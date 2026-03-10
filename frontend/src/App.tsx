@@ -131,6 +131,7 @@ export default function App() {
             onSave={updateTodo}
             onToggleToday={toggleTodayFocus}
             onAskPriorities={handleAskPriorities}
+            onRefresh={refresh}
             settings={settings}
             onToggleFocusMode={handleToggleFocusMode}
           />
