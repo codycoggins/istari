@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+
+const SIDEBAR_WIDTH_KEY = "istari-sidebar-width";
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 600;
+const SIDEBAR_DEFAULT = 300;
 import { checkAuth } from "./api/auth";
 import { ChatPanel } from "./components/Chat/ChatPanel";
 import { DigestPanel } from "./components/DigestPanel/DigestPanel";
@@ -30,6 +35,49 @@ export default function App() {
   const { settings, update: updateSetting } = useSettings();
   const { digests, isLoading: digestsLoading, markReviewed } = useDigests();
   const chatSendRef = useRef<((msg: string) => void) | null>(null);
+
+  // ── Resizable sidebar ──────────────────────────────────
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    return stored ? Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, parseInt(stored, 10))) : SIDEBAR_DEFAULT;
+  });
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - e.clientX; // dragging left = wider
+      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
+      setSidebarWidth(next);
+    };
+    const onMouseUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setSidebarWidth((w) => {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
+        return w;
+      });
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
 
   const handleTodoCreated = useCallback(() => {
     refresh();
@@ -117,7 +165,21 @@ export default function App() {
             onAuthFailure={() => setIsAuthenticated(false)}
           />
         </main>
-        <aside className="todo-sidebar">
+        <aside className="todo-sidebar" style={{ width: sidebarWidth }}>
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleResizeMouseDown}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: "5px",
+              cursor: "col-resize",
+              zIndex: 10,
+            }}
+            className="sidebar-resize-handle"
+          />
           <DigestPanel
             digests={digests}
             isLoading={digestsLoading}

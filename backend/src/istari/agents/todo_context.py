@@ -24,7 +24,8 @@ Steps:
    information — e.g. a specific product, place, service, or current event.
    Do NOT web-search generic personal tasks like "call dentist" or "pay bills".
 
-Return a concise markdown summary, organised by source.
+Return a markdown summary, organised by source.
+Include hyperlinks to mail, calendar, or web items when available.
 Omit any source that returned nothing useful.
 Use short bullet points. If nothing relevant was found anywhere, say so briefly.
 """

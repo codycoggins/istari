@@ -10,6 +10,8 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
+from istari.config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +35,7 @@ async def scan_gmail_node(state: ProactiveState) -> ProactiveState:
     from istari.tools.gmail.reader import GmailReader
 
     token_path = state.get("gmail_token_path", "gmail_token.json")
-    max_results = state.get("gmail_max_results", 20)
+    max_results = state.get("gmail_max_results", settings.gmail_max_results)
 
     try:
         reader = GmailReader(token_path)
@@ -104,7 +106,7 @@ async def summarize_node(state: ProactiveState) -> ProactiveState:
                     "content": (
                         "You are a concise personal assistant. "
                         "Summarize the following items into an actionable digest. "
-                        "Group by urgency. Be brief - 2-5 bullet points max. "
+                        "Group by urgency. Be brief - 7-9 bullet points max. "
                         "For emails, note which need a reply. "
                         "For stale TODOs, suggest next actions."
                     ),

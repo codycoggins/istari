@@ -83,11 +83,27 @@
 }
 
 .todo-sidebar {
-  width: 300px;
   flex-shrink: 0;
+  position: relative;
   border-left: 1px solid var(--border-subtle);
   background: var(--bg-surface);
   overflow-y: auto;
+}
+
+.sidebar-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:active::after {
+  background: var(--accent);
+  opacity: 0.5;
 }
 
 /* ── Animations ─────────────────────────────────────── */

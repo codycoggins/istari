@@ -6,8 +6,6 @@ Ideas that have not yet been designed or planned.
 - (list here)
 
 ## UI
-- Add a refresh button to Istari tasks
-- Add a button by tasks that has an icon for context (maybe a question mark?).  It should display relevant info from memories and tools to help the user perform the task/todo 
 - As the TODO list gets longer, add filters
 - Make the size of the right hand TASKS panel adjustable.  User can adjust by dragging the border. Make the default size wider than it is now.
 - Keyboard commands: Arrow up gets preveous prompt.  Press repeatedly to scroll back. ctrl-a to beginning, ctrl-e to end. 
@@ -40,3 +38,5 @@ Ideas that have not yet been designed or planned.
 ## DONE
 
 - The term "Delegate" from Eisenhour matrix -rename to "Contain" for individual contributor?
+- Add a refresh button to Istari tasks
+- Add a button by tasks that has an icon for context (ma2ybe a question mark?).  It should display relevant info from memories and tools to help the user perform the task/todo 
