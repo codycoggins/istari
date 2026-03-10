@@ -160,6 +160,7 @@ Design the `Todo` schema with these fields from Phase 8a migration so 8d is a no
 
 These are confirmed desirable but not yet sequenced:
 
+- Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
 - **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
@@ -167,3 +168,12 @@ These are confirmed desirable but not yet sequenced:
 - **goals.md injection** — read `memory/goals.md` into system prompt; Istari can cross-reference new tasks against stated goals
 - **Matrix / Element integration** — alternative chat interface (from original project outline)
 - **"Shiny object" check** — when user brings a new task in chat, Istari proactively asks which project it belongs to and whether it should displace the current next action
+- UI - Keyboard commands: Arrow up gets preveous prompt.  Press repeatedly to scroll back. ctrl-a to beginning, ctrl-e to end. 
+- UI - Light and dark mode.
+- Tools - Add support for command line tools (whitelisted)
+- Data Source  -Google Drive (use same google auth approach)
+- Data Source Jira - atlassian acli command line https://developer.atlassian.com/cloud/acli/guides/install-macos/
+- Data Source Obsidian?  (it is duplicative of file system) - see obsidian CLI, new
+- Feature - Explore adding positive habits that user wishes to adopt, with tracking.
+- Feature - Explore adding suggestions for fun activities
+
