@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from istari.api.debug import ring_buffer
 from istari.api.middleware.auth import AuthMiddleware
-from istari.api.routes import auth, chat, digests, memory, notifications, settings, todos
+from istari.api.routes import auth, chat, digests, memory, notifications, projects, settings, todos
 from istari.api.routes import debug as debug_routes
 from istari.config.settings import settings as app_settings
 from istari.tools.mcp.client import MCPManager, load_mcp_server_configs
@@ -85,6 +85,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(todos.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(digests.router, prefix="/api")

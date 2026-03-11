@@ -265,25 +265,71 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
         return "\n".join(lines)
 
     async def get_priorities() -> str:
+        from istari.tools.project.manager import ProjectManager
+
         mgr = TodoManager(session)
+        proj_mgr = ProjectManager(session)
         max_tasks = settings.priorities_max
+
+        # Collect next actions from active projects
+        active_projects = await proj_mgr.list_active()
+        project_next_actions: list[tuple[str, Todo]] = []
+        project_na_ids: set[int] = set()
+        for proj in active_projects:
+            if proj.next_action_id is not None:
+                na = await mgr.get(proj.next_action_id)
+                if na is not None and na.status in (
+                    TodoStatus.OPEN,
+                    TodoStatus.IN_PROGRESS,
+                ):
+                    project_next_actions.append((proj.name, na))
+                    project_na_ids.add(na.id)
+
+        # Today's focus tasks
         today_todos = await mgr.list_today()
-        selected = today_todos[:max_tasks]
-        if len(selected) < max_tasks:
-            exclude = [t.id for t in selected]
-            needed = max_tasks - len(selected)
-            extra = await mgr.get_prioritized(limit=needed, exclude_ids=exclude)
-            selected = selected + extra
-        if not selected:
-            return "No active TODOs right now."
-        lines = ["Here's what I'd focus on:"]
         today_ids = {t.id for t in today_todos}
-        for i, t in enumerate(selected, 1):
-            quadrant = _QUADRANT_LABELS.get((t.urgent, t.important), "")
-            quad_tag = f" [{quadrant}]" if quadrant else ""
-            priority_tag = f" (priority {t.priority})" if t.priority is not None else ""
-            today_tag = " ★ Today" if t.id in today_ids else ""
-            lines.append(f"{i}. {t.title}{quad_tag}{priority_tag}{today_tag}")
+
+        # Fill remaining slots from standalone high-priority todos
+        used_ids = project_na_ids | {t.id for t in today_todos}
+        remaining = max_tasks - len(project_next_actions)
+        if remaining > 0:
+            extra = await mgr.get_prioritized(
+                limit=remaining,
+                exclude_ids=list(used_ids),
+            )
+        else:
+            extra = []
+
+        if not project_next_actions and not today_todos and not extra:
+            return "No active TODOs right now."
+
+        lines: list[str] = []
+
+        if project_next_actions:
+            lines.append("**Project next actions:**")
+            for proj_name, t in project_next_actions:
+                today_tag = " ★ Today" if t.id in today_ids else ""
+                lines.append(f"- **{proj_name}** → {t.title}{today_tag}")
+
+        standalone: list[Todo] = []
+        for t in today_todos:
+            if t.id not in project_na_ids:
+                standalone.append(t)
+        standalone.extend(t for t in extra if t.id not in project_na_ids)
+
+        if standalone:
+            if project_next_actions:
+                lines.append("")
+                lines.append("**Standalone priorities:**")
+            else:
+                lines.append("Here's what I'd focus on:")
+            for i, t in enumerate(standalone, 1):
+                quadrant = _QUADRANT_LABELS.get((t.urgent, t.important), "")
+                quad_tag = f" [{quadrant}]" if quadrant else ""
+                priority_tag = f" (priority {t.priority})" if t.priority is not None else ""
+                today_tag = " ★ Today" if t.id in today_ids else ""
+                lines.append(f"{i}. {t.title}{quad_tag}{priority_tag}{today_tag}")
+
         return "\n".join(lines)
 
     return [

@@ -6,6 +6,7 @@ from istari.models.conversation import ConversationMessage
 from istari.models.digest import Digest
 from istari.models.memory import Memory
 from istari.models.notification import Notification
+from istari.models.project import Project
 from istari.models.todo import Todo
 from istari.models.user import UserPreference, UserSetting
 
@@ -16,6 +17,7 @@ __all__ = [
     "Digest",
     "Memory",
     "Notification",
+    "Project",
     "Todo",
     "UserPreference",
     "UserSetting",

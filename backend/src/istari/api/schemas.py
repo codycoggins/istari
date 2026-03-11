@@ -57,6 +57,47 @@ class TodoContextResponse(BaseModel):
     context: str
 
 
+# --- Project schemas ---
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: str = ""
+    goal: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    goal: str | None = None
+    status: str | None = None
+
+
+class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: str | None = None
+    goal: str | None = None
+    status: str
+    next_action_id: int | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class ProjectWithTodos(ProjectResponse):
+    todos: list[TodoResponse] = []
+
+
+class NextActionUpdate(BaseModel):
+    todo_id: int | None = None
+
+
+class ProjectListResponse(BaseModel):
+    projects: list[ProjectResponse]
+
+
 # --- Memory schemas ---
 
 

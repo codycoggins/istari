@@ -2,13 +2,17 @@
 
 import datetime
 import enum
+from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Date, DateTime, Enum, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from istari.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from istari.models.project import Project
 
 
 class TodoStatus(enum.StrEnum):
@@ -47,3 +51,16 @@ class Todo(TimestampMixin, Base):
     last_prompted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
+    project_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # Relationships
+    project: Mapped["Project | None"] = relationship(
+        "Project",
+        back_populates="todos",
+        foreign_keys=[project_id],
+        lazy="select",
+    )
