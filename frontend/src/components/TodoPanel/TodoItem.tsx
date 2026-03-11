@@ -10,6 +10,8 @@ interface TodoItemProps {
   onReopen: (id: number) => void;
   onEdit: (todo: Todo) => void;
   onToggleToday?: (id: number) => void;
+  projectName?: string;
+  isNextAction?: boolean;
 }
 
 function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
@@ -24,7 +26,7 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   return null;
 }
 
-export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: TodoItemProps) {
+export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday, projectName, isNextAction }: TodoItemProps) {
   const [pencilHovered, setPencilHovered] = useState(false);
   const [targetHovered, setTargetHovered] = useState(false);
   const [contextHovered, setContextHovered] = useState(false);
@@ -35,7 +37,7 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: 
   const todayStr = new Date().toISOString().slice(0, 10);
   const isToday = todo.today_date === todayStr;
   const quadrant = getQuadrant(todo.urgent, todo.important);
-  const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked");
+  const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked" || projectName || isNextAction);
 
   async function handleContextClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -153,6 +155,41 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday }: 
                 }}
               >
                 Blocked
+              </span>
+            )}
+            {isNextAction && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  color: "var(--accent)",
+                  background: "var(--accent-dim)",
+                  fontWeight: 600,
+                  border: "1px solid var(--border-accent)",
+                }}
+              >
+                → next
+              </span>
+            )}
+            {projectName && !isNextAction && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  color: "var(--text-muted)",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  maxWidth: "120px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  display: "inline-block",
+                }}
+                title={projectName}
+              >
+                {projectName}
               </span>
             )}
           </div>

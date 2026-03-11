@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Todo } from "../../types/todo";
 import type { TodoUpdatePayload } from "../../api/todos";
+import type { Project } from "../../types/project";
 import { TodoItem } from "./TodoItem";
 
 function isCompletedBeforeToday(todo: Todo): boolean {
@@ -368,6 +369,9 @@ interface TodoPanelProps {
   onRefresh?: () => void;
   settings?: Record<string, string>;
   onToggleFocusMode?: (enabled: boolean) => void;
+  projects?: Project[];
+  projectFilter?: number | null;
+  onSelectProject?: (id: number | null) => void;
 }
 
 export function TodoPanel({
@@ -381,15 +385,23 @@ export function TodoPanel({
   onRefresh,
   settings,
   onToggleFocusMode,
+  projects,
+  projectFilter,
+  onSelectProject,
 }: TodoPanelProps) {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const focusMode = settings?.focus_mode === "true";
   const quietStart = settings?.quiet_hours_start ?? "21";
   const quietEnd = settings?.quiet_hours_end ?? "7";
   const todayStr = new Date().toISOString().slice(0, 10);
-  const visibleTodos = todos.filter((t) => !isCompletedBeforeToday(t));
+  const filteredByProject = projectFilter != null
+    ? todos.filter((t) => t.project_id === projectFilter)
+    : todos;
+  const visibleTodos = filteredByProject.filter((t) => !isCompletedBeforeToday(t));
   const todayTodos = visibleTodos.filter((t) => t.today_date === todayStr);
   const remainingTodos = visibleTodos.filter((t) => t.today_date !== todayStr);
+
+  const selectedProject = projects?.find((p) => p.id === projectFilter) ?? null;
 
   return (
     <>
@@ -474,6 +486,62 @@ export function TodoPanel({
           </div>
         </div>
 
+        {/* Project filter bar */}
+        {projects && projects.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              flexWrap: "wrap",
+              marginBottom: "0.625rem",
+            }}
+          >
+            <button
+              onClick={() => onSelectProject?.(null)}
+              style={{
+                background: projectFilter == null ? "var(--accent-dim)" : "none",
+                border: `1px solid ${projectFilter == null ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                borderRadius: "4px",
+                padding: "0.15rem 0.5rem",
+                cursor: "pointer",
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                color: projectFilter == null ? "var(--accent)" : "var(--text-muted)",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+            >
+              All
+            </button>
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onSelectProject?.(projectFilter === p.id ? null : p.id)}
+                title={p.goal ?? undefined}
+                style={{
+                  background: projectFilter === p.id ? "var(--accent-dim)" : "none",
+                  border: `1px solid ${projectFilter === p.id ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                  borderRadius: "4px",
+                  padding: "0.15rem 0.5rem",
+                  cursor: "pointer",
+                  fontSize: "0.625rem",
+                  fontWeight: 600,
+                  color: projectFilter === p.id ? "var(--accent)" : "var(--text-muted)",
+                  fontFamily: "inherit",
+                  maxWidth: "100px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s",
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Today's Tasks section */}
         {!isLoading && todayTodos.length > 0 && (
           <>
@@ -510,16 +578,21 @@ export function TodoPanel({
                 {todayTodos.length} / 5
               </span>
             </div>
-            {todayTodos.map((todo) => (
-              <TodoItem
-                key={todo.id}
-                todo={todo}
-                onComplete={onComplete}
-                onReopen={onReopen}
-                onEdit={setEditTodo}
-                onToggleToday={onToggleToday}
-              />
-            ))}
+            {todayTodos.map((todo) => {
+              const proj = projects?.find((p) => p.id === todo.project_id);
+              return (
+                <TodoItem
+                  key={todo.id}
+                  todo={todo}
+                  onComplete={onComplete}
+                  onReopen={onReopen}
+                  onEdit={setEditTodo}
+                  onToggleToday={onToggleToday}
+                  projectName={projectFilter == null ? proj?.name : undefined}
+                  isNextAction={proj?.next_action_id === todo.id}
+                />
+              );
+            })}
             <hr
               style={{
                 border: "none",
@@ -538,7 +611,7 @@ export function TodoPanel({
         )}
         {!isLoading && visibleTodos.length === 0 && (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
-            No tasks yet
+            {selectedProject ? `No tasks in "${selectedProject.name}"` : "No tasks yet"}
           </p>
         )}
         {!isLoading && todayTodos.length > 0 && remainingTodos.length > 0 && (
@@ -556,16 +629,21 @@ export function TodoPanel({
             </span>
           </div>
         )}
-        {remainingTodos.map((todo) => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            onComplete={onComplete}
-            onReopen={onReopen}
-            onEdit={setEditTodo}
-            onToggleToday={onToggleToday}
-          />
-        ))}
+        {remainingTodos.map((todo) => {
+          const proj = projects?.find((p) => p.id === todo.project_id);
+          return (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              onComplete={onComplete}
+              onReopen={onReopen}
+              onEdit={setEditTodo}
+              onToggleToday={onToggleToday}
+              projectName={projectFilter == null ? proj?.name : undefined}
+              isNextAction={proj?.next_action_id === todo.id}
+            />
+          );
+        })}
 
         {/* Settings section */}
         {settings && (
