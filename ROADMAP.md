@@ -2,15 +2,17 @@
 
 ## Completed Phases
 
-| Phase | Summary |
-|-------|---------|
-| 1 | MVP — WebSocket chat, ReAct agent, TODO CRUD, memory store, LiteLLM routing |
-| 2 | Notifications, Gmail integration, proactive worker agent |
-| 3 | Apple Calendar support (blocked by MDM; Google Calendar in use) |
-| 4 | Memory architecture — SOUL.md, USER.md, pgvector semantic search, conversation history |
-| 5 | Eisenhower matrix — urgent/important classification, quadrant badges |
-| 6 | MCP server integration — stdio subprocess model, GitHub server pre-configured |
-| 7 | Security hardening — auth middleware, Docker networking, nginx headers, rate limiting, credential audit |
+| Phase | Summary                                                                                                              |
+|-------|----------------------------------------------------------------------------------------------------------------------|
+| 1 | MVP — WebSocket chat, ReAct agent, TODO CRUD, memory store, LiteLLM routing                                          |
+| 2 | Notifications, Gmail integration, proactive worker agent                                                             |
+| 3 | Apple Calendar support (blocked by MDM; Google Calendar in use)                                                      |
+| 4 | Memory architecture — SOUL.md, USER.md, pgvector semantic search, conversation history                               |
+| 5 | Eisenhower matrix — urgent/important classification, quadrant badges                                                 |
+| 6 | MCP server integration — stdio subprocess model, GitHub server pre-configured                                        |
+| 7 | Security hardening — auth middleware, Docker networking, nginx headers, rate limiting, credential audit              |
+| 8a | Projects core — Project model, ProjectManager, agent tools, REST API, next-action designation                        |
+| 8b | Projects UI — ProjectsPanel, TodoPanel filter bar, next-action badge, project pill on todo items, keyboard shortcuts |
 
 ---
 
@@ -168,7 +170,6 @@ These are confirmed desirable but not yet sequenced:
 - **goals.md injection** — read `memory/goals.md` into system prompt; Istari can cross-reference new tasks against stated goals
 - **Matrix / Element integration** — alternative chat interface (from original project outline)
 - **"Shiny object" check** — when user brings a new task in chat, Istari proactively asks which project it belongs to and whether it should displace the current next action
-- UI - Keyboard commands: Arrow up gets preveous prompt.  Press repeatedly to scroll back. ctrl-a to beginning, ctrl-e to end. 
 - UI - Light and dark mode.
 - Tools - Add support for command line tools (whitelisted)
 - Data Source  -Google Drive (use same google auth approach)
