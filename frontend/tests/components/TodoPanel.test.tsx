@@ -69,7 +69,7 @@ describe("TodoPanel", () => {
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 
-  it("renders Today's Goals section when tasks are focused for today", () => {
+  it("renders Today's Tasks section when tasks are focused for today", () => {
     const todayTodo = {
       id: 3,
       title: "Write report",
@@ -79,13 +79,13 @@ describe("TodoPanel", () => {
       updated_at: "2024-01-03T00:00:00Z",
     };
     render(<TodoPanel todos={[todayTodo, ...mockTodos]} isLoading={false} />);
-    expect(screen.getByText("Today's Goals")).toBeInTheDocument();
+    expect(screen.getByText("Today's Tasks")).toBeInTheDocument();
     expect(screen.getByText("1 / 5")).toBeInTheDocument();
   });
 
-  it("does not render Today's Goals section when no tasks are focused", () => {
+  it("does not render Today's Tasks section when no tasks are focused", () => {
     render(<TodoPanel todos={mockTodos} isLoading={false} />);
-    expect(screen.queryByText("Today's Goals")).not.toBeInTheDocument();
+    expect(screen.queryByText("Today's Tasks")).not.toBeInTheDocument();
   });
 
   it("calls onToggleToday when target icon is clicked", () => {

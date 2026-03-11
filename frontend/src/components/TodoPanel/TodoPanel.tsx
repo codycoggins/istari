@@ -474,7 +474,7 @@ export function TodoPanel({
           </div>
         </div>
 
-        {/* Today's Goals section */}
+        {/* Today's Tasks section */}
         {!isLoading && todayTodos.length > 0 && (
           <>
             <div
@@ -494,7 +494,7 @@ export function TodoPanel({
                   color: "var(--accent)",
                 }}
               >
-                Today's Goals
+                Today's Tasks
               </span>
               <span
                 style={{
@@ -552,7 +552,7 @@ export function TodoPanel({
                 color: "var(--text-muted)",
               }}
             >
-              Other Goals
+              Other Tasks
             </span>
           </div>
         )}
