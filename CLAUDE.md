@@ -3,7 +3,7 @@
 See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
-- **Phases 1–7 complete + Phase 8a–8b (Projects layer + UI) complete** — ReAct agent, memory, Eisenhower matrix, MCP integration, security hardening, projects with full UI; **363 backend + 34 frontend tests passing**, no exclusions, ruff clean
+- **Phases 1–8b complete** — ReAct agent, memory, Eisenhower matrix, MCP integration, security hardening, projects with full UI; **363 backend + 34 frontend tests passing**, no exclusions, ruff clean
 - **Apple Calendar:** EventKit blocked by MDM (Abacus IT / SentinelOne) — using `CALENDAR_BACKEND=google`; AppleCalendarReader code complete but unusable without IT whitelisting. All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **mypy: 1 pre-existing unused-ignore in `tools/mcp/client.py`** — all other files clean. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
