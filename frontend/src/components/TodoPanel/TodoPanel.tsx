@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Todo } from "../../types/todo";
 import type { TodoUpdatePayload } from "../../api/todos";
+import { listProjects } from "../../api/projects";
 import type { Project } from "../../types/project";
 import { TodoItem } from "./TodoItem";
 
@@ -66,6 +67,7 @@ function TodoDetailPanel({
   onClose: () => void;
   onSave: (id: number, updates: TodoUpdatePayload) => Promise<void>;
 }) {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
     title: todo.title,
     body: todo.body ?? "",
@@ -77,7 +79,12 @@ function TodoDetailPanel({
     source_link: todo.source_link ?? "",
     due_date: todo.due_date ? todo.due_date.slice(0, 10) : "",
     tags: (todo.tags ?? []).join(", "),
+    project_id: todo.project_id != null ? String(todo.project_id) : "",
   });
+
+  useEffect(() => {
+    listProjects().then(({ projects: p }) => setProjects(p)).catch(() => {});
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,6 +115,7 @@ function TodoDetailPanel({
       source_link: form.source_link.trim() || null,
       due_date: form.due_date || null,
       tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+      project_id: form.project_id ? parseInt(form.project_id, 10) : null,
     };
     try {
       await onSave(todo.id, payload);
@@ -301,6 +309,18 @@ function TodoDetailPanel({
               placeholder="work, urgent, waiting"
               style={inputStyle}
             />
+          </Field>
+
+          {/* Project */}
+          <Field label="Project">
+            <select value={form.project_id} onChange={set("project_id")} style={inputStyle}>
+              <option value="">— None —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </Field>
 
           {/* Timestamps (read-only) */}
