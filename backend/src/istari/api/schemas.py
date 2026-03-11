@@ -40,6 +40,7 @@ class TodoResponse(BaseModel):
     due_date: datetime.datetime | None = None
     today_date: datetime.date | None = None
     tags: list[str] | None = None
+    project_id: int | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

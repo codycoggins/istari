@@ -11,6 +11,7 @@ export interface Todo {
   due_date?: string;
   today_date?: string | null;
   tags?: string[];
+  project_id?: number | null;
   created_at: string;
   updated_at: string;
 }

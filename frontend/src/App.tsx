@@ -9,9 +9,11 @@ import { ChatPanel } from "./components/Chat/ChatPanel";
 import { DigestPanel } from "./components/DigestPanel/DigestPanel";
 import { LoginPage } from "./components/Login/LoginPage";
 import { NotificationInbox } from "./components/NotificationInbox/NotificationInbox";
+import { ProjectsPanel } from "./components/ProjectsPanel/ProjectsPanel";
 import { TodoPanel } from "./components/TodoPanel/TodoPanel";
 import { useDigests } from "./hooks/useDigests";
 import { useNotifications } from "./hooks/useNotifications";
+import { useProjects } from "./hooks/useProjects";
 import { useSettings } from "./hooks/useSettings";
 import { useTodos } from "./hooks/useTodos";
 
@@ -34,6 +36,8 @@ export default function App() {
   } = useNotifications();
   const { settings, update: updateSetting } = useSettings();
   const { digests, isLoading: digestsLoading, markReviewed } = useDigests();
+  const { projects, isLoading: projectsLoading, refresh: refreshProjects, updateProject } = useProjects();
+  const [projectFilter, setProjectFilter] = useState<number | null>(null);
   const chatSendRef = useRef<((msg: string) => void) | null>(null);
 
   // ── Resizable sidebar ──────────────────────────────────
@@ -185,6 +189,15 @@ export default function App() {
             isLoading={digestsLoading}
             onMarkReviewed={markReviewed}
           />
+          <ProjectsPanel
+            projects={projects}
+            todos={todos}
+            isLoading={projectsLoading}
+            selectedProjectId={projectFilter}
+            onSelectProject={setProjectFilter}
+            onRefresh={refreshProjects}
+            onUpdateProject={updateProject}
+          />
           <TodoPanel
             todos={todos}
             isLoading={isLoading}
@@ -196,6 +209,9 @@ export default function App() {
             onRefresh={refresh}
             settings={settings}
             onToggleFocusMode={handleToggleFocusMode}
+            projects={projects}
+            projectFilter={projectFilter}
+            onSelectProject={setProjectFilter}
           />
         </aside>
       </div>
