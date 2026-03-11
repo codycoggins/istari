@@ -3,10 +3,13 @@ import { useRef, useState } from "react";
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  history?: string[]; // user messages, newest-first
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, history = [] }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current draft
+  const [draft, setDraft] = useState(""); // saved input before history nav
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -15,6 +18,63 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     if (trimmed && !disabled) {
       onSend(trimmed);
       setInput("");
+      setHistoryIndex(-1);
+      setDraft("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = inputRef.current;
+
+    // Arrow Up — go back in history (most recent first)
+    if (e.key === "ArrowUp" && history.length > 0) {
+      e.preventDefault();
+      const nextIndex = historyIndex + 1;
+      if (nextIndex < history.length) {
+        if (historyIndex === -1) setDraft(input);
+        setHistoryIndex(nextIndex);
+        setInput(history[nextIndex] ?? "");
+      }
+      return;
+    }
+
+    // Arrow Down — go forward / restore draft
+    if (e.key === "ArrowDown" && historyIndex > -1) {
+      e.preventDefault();
+      const nextIndex = historyIndex - 1;
+      setHistoryIndex(nextIndex);
+      setInput(nextIndex === -1 ? draft : (history[nextIndex] ?? ""));
+      return;
+    }
+
+    // Ctrl-A — move cursor to start of line
+    if (e.ctrlKey && e.key === "a") {
+      e.preventDefault();
+      el?.setSelectionRange(0, 0);
+      return;
+    }
+
+    // Ctrl-E — move cursor to end of line
+    if (e.ctrlKey && e.key === "e") {
+      e.preventDefault();
+      el?.setSelectionRange(input.length, input.length);
+      return;
+    }
+
+    // Ctrl-U — clear entire line
+    if (e.ctrlKey && e.key === "u") {
+      e.preventDefault();
+      setInput("");
+      setHistoryIndex(-1);
+      return;
+    }
+
+    // Ctrl-K — kill from cursor to end of line
+    if (e.ctrlKey && e.key === "k") {
+      e.preventDefault();
+      const pos = el?.selectionStart ?? input.length;
+      setInput(input.slice(0, pos));
+      return;
     }
   };
 
@@ -38,6 +98,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Ask Istari…"
         disabled={disabled}
         style={{

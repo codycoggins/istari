@@ -75,7 +75,14 @@ export function ChatPanel({ onTodoCreated, onRegisterSend, onAuthFailure }: Chat
         </div>
       )}
 
-      <ChatInput onSend={sendMessage} disabled={!isConnected} />
+      <ChatInput
+          onSend={sendMessage}
+          disabled={!isConnected}
+          history={messages
+            .filter((m) => m.role === "user")
+            .map((m) => m.content)
+            .reverse()}
+        />
     </div>
   );
 }
