@@ -2,7 +2,11 @@ Run the full Istari test suite — identical to what CI runs in `.github/workflo
 
 ## Backend (in `backend/`)
 
-Run these steps in order. Stop and report if any step fails.
+First, check if you are in a worktree directory or branch.
+If you are in a worktree, you need to run `cd frontend && npm install` before any other npm commands.
+
+Then, run these steps in order. Stop and report if any step fails.
+(adjust cd commands as appropriate based on pwd)
 
 1. **Lint:** `cd backend && ruff check src/ tests/`
 2. **Type check:** `cd backend && mypy src/`
