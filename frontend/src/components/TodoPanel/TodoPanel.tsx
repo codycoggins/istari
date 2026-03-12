@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+
+const TASKS_COLLAPSED_KEY = "istari-tasks-collapsed";
+const SETTINGS_COLLAPSED_KEY = "istari-settings-collapsed";
 import type { Todo } from "../../types/todo";
 import type { TodoUpdatePayload } from "../../api/todos";
 import { listProjects } from "../../api/projects";
@@ -410,6 +413,12 @@ export function TodoPanel({
   onSelectProject,
 }: TodoPanelProps) {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
+  const [isTasksCollapsed, setIsTasksCollapsed] = useState<boolean>(
+    () => localStorage.getItem(TASKS_COLLAPSED_KEY) === "true",
+  );
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState<boolean>(
+    () => localStorage.getItem(SETTINGS_COLLAPSED_KEY) === "true",
+  );
   const focusMode = settings?.focus_mode === "true";
   const quietStart = settings?.quiet_hours_start ?? "21";
   const quietEnd = settings?.quiet_hours_end ?? "7";
@@ -432,173 +441,255 @@ export function TodoPanel({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "0.75rem",
+            marginBottom: isTasksCollapsed ? 0 : "0.75rem",
             paddingBottom: "0.625rem",
             borderBottom: "1px solid var(--border-subtle)",
           }}
         >
-          <span
+          <button
+            onClick={() => {
+              setIsTasksCollapsed((prev) => {
+                const next = !prev;
+                localStorage.setItem(TASKS_COLLAPSED_KEY, String(next));
+                return next;
+              });
+            }}
+            aria-label={isTasksCollapsed ? "Expand tasks" : "Collapse tasks"}
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
               fontSize: "1rem",
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
               color: "var(--text-muted)",
+              fontFamily: "inherit",
             }}
           >
-            Tasks
-          </span>
-          <div style={{ display: "flex", gap: "0.375rem" }}>
-            <button
-              onClick={onRefresh}
-              aria-label="Refresh tasks"
-              disabled={isLoading}
-              title="Refresh"
+            <span
               style={{
-                background: "none",
-                border: "1px solid var(--border-default)",
-                borderRadius: "5px",
-                padding: "0.25rem 0.5rem",
-                cursor: isLoading ? "not-allowed" : "pointer",
                 fontSize: "0.75rem",
-                color: isLoading ? "var(--text-muted)" : "var(--text-secondary)",
-                fontFamily: "inherit",
-                lineHeight: 1,
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                if (!isLoading) {
-                  e.currentTarget.style.borderColor = "var(--border-accent)";
-                  e.currentTarget.style.color = "var(--accent)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-default)";
-                e.currentTarget.style.color = isLoading ? "var(--text-muted)" : "var(--text-secondary)";
+                transition: "transform 0.2s",
+                transform: isTasksCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                display: "inline-block",
               }}
             >
-              ↻
-            </button>
-            <button
-              onClick={onAskPriorities}
-              style={{
-                background: "none",
-                border: "1px solid var(--border-default)",
-                borderRadius: "5px",
-                padding: "0.25rem 0.625rem",
-                cursor: "pointer",
-                fontSize: "0.6875rem",
-                color: "var(--text-secondary)",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-accent)";
-                e.currentTarget.style.color = "var(--accent)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-default)";
-                e.currentTarget.style.color = "var(--text-secondary)";
-              }}
-            >
-              Prioritize
-            </button>
-          </div>
-        </div>
-
-        {/* Project filter bar */}
-        {projects && projects.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.3rem",
-              flexWrap: "wrap",
-              marginBottom: "0.625rem",
-            }}
-          >
-            <button
-              onClick={() => onSelectProject?.(null)}
-              style={{
-                background: projectFilter == null ? "var(--accent-dim)" : "none",
-                border: `1px solid ${projectFilter == null ? "var(--border-accent)" : "var(--border-subtle)"}`,
-                borderRadius: "4px",
-                padding: "0.15rem 0.5rem",
-                cursor: "pointer",
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                color: projectFilter == null ? "var(--accent)" : "var(--text-muted)",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-              }}
-            >
-              All
-            </button>
-            {projects.map((p) => (
+              ▾
+            </span>
+            Tasks
+          </button>
+          {!isTasksCollapsed && (
+            <div style={{ display: "flex", gap: "0.375rem" }}>
               <button
-                key={p.id}
-                onClick={() => onSelectProject?.(projectFilter === p.id ? null : p.id)}
-                title={p.goal ?? undefined}
+                onClick={onRefresh}
+                aria-label="Refresh tasks"
+                disabled={isLoading}
+                title="Refresh"
                 style={{
-                  background: projectFilter === p.id ? "var(--accent-dim)" : "none",
-                  border: `1px solid ${projectFilter === p.id ? "var(--border-accent)" : "var(--border-subtle)"}`,
-                  borderRadius: "4px",
-                  padding: "0.15rem 0.5rem",
-                  cursor: "pointer",
-                  fontSize: "0.625rem",
-                  fontWeight: 600,
-                  color: projectFilter === p.id ? "var(--accent)" : "var(--text-muted)",
+                  background: "none",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "5px",
+                  padding: "0.25rem 0.5rem",
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  fontSize: "0.75rem",
+                  color: isLoading ? "var(--text-muted)" : "var(--text-secondary)",
                   fontFamily: "inherit",
-                  maxWidth: "100px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  lineHeight: 1,
                   transition: "all 0.15s",
                 }}
+                onMouseEnter={(e) => {
+                  if (!isLoading) {
+                    e.currentTarget.style.borderColor = "var(--border-accent)";
+                    e.currentTarget.style.color = "var(--accent)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-default)";
+                  e.currentTarget.style.color = isLoading ? "var(--text-muted)" : "var(--text-secondary)";
+                }}
               >
-                {p.name}
+                ↻
               </button>
-            ))}
-          </div>
-        )}
-
-        {/* Today's Tasks section */}
-        {!isLoading && todayTodos.length > 0 && (
-          <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <span
+              <button
+                onClick={onAskPriorities}
                 style={{
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--accent)",
+                  background: "none",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "5px",
+                  padding: "0.25rem 0.625rem",
+                  cursor: "pointer",
+                  fontSize: "0.6875rem",
+                  color: "var(--text-secondary)",
+                  fontFamily: "inherit",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-accent)";
+                  e.currentTarget.style.color = "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-default)";
+                  e.currentTarget.style.color = "var(--text-secondary)";
                 }}
               >
-                Today's Tasks
-              </span>
-              <span
-                style={{
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  padding: "0.1rem 0.4rem",
-                  borderRadius: "3px",
-                  background: todayTodos.length >= 5 ? "var(--accent-dim)" : "var(--bg-elevated)",
-                  color: todayTodos.length >= 5 ? "var(--accent)" : "var(--text-muted)",
-                  border: `1px solid ${todayTodos.length >= 5 ? "var(--border-accent)" : "var(--border-subtle)"}`,
-                }}
-              >
-                {todayTodos.length} / 5
-              </span>
+                Prioritize
+              </button>
             </div>
-            {todayTodos.map((todo) => {
+          )}
+        </div>
+
+        {/* Task body — collapsed when isTasksCollapsed */}
+        {!isTasksCollapsed && (
+          <>
+            {/* Project filter bar */}
+            {projects && projects.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  flexWrap: "wrap",
+                  marginBottom: "0.625rem",
+                }}
+              >
+                <button
+                  onClick={() => onSelectProject?.(null)}
+                  style={{
+                    background: projectFilter == null ? "var(--accent-dim)" : "none",
+                    border: `1px solid ${projectFilter == null ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                    borderRadius: "4px",
+                    padding: "0.15rem 0.5rem",
+                    cursor: "pointer",
+                    fontSize: "0.625rem",
+                    fontWeight: 600,
+                    color: projectFilter == null ? "var(--accent)" : "var(--text-muted)",
+                    fontFamily: "inherit",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  All
+                </button>
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => onSelectProject?.(projectFilter === p.id ? null : p.id)}
+                    title={p.goal ?? undefined}
+                    style={{
+                      background: projectFilter === p.id ? "var(--accent-dim)" : "none",
+                      border: `1px solid ${projectFilter === p.id ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                      borderRadius: "4px",
+                      padding: "0.15rem 0.5rem",
+                      cursor: "pointer",
+                      fontSize: "0.625rem",
+                      fontWeight: 600,
+                      color: projectFilter === p.id ? "var(--accent)" : "var(--text-muted)",
+                      fontFamily: "inherit",
+                      maxWidth: "100px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Today's Tasks section */}
+            {!isLoading && todayTodos.length > 0 && (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.625rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    Today's Tasks
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.625rem",
+                      fontWeight: 700,
+                      padding: "0.1rem 0.4rem",
+                      borderRadius: "3px",
+                      background: todayTodos.length >= 5 ? "var(--accent-dim)" : "var(--bg-elevated)",
+                      color: todayTodos.length >= 5 ? "var(--accent)" : "var(--text-muted)",
+                      border: `1px solid ${todayTodos.length >= 5 ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                    }}
+                  >
+                    {todayTodos.length} / 5
+                  </span>
+                </div>
+                {todayTodos.map((todo) => {
+                  const proj = projects?.find((p) => p.id === todo.project_id);
+                  return (
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onComplete={onComplete}
+                      onReopen={onReopen}
+                      onEdit={setEditTodo}
+                      onToggleToday={onToggleToday}
+                      projectName={projectFilter == null ? proj?.name : undefined}
+                      isNextAction={proj?.next_action_id === todo.id}
+                    />
+                  );
+                })}
+                <hr
+                  style={{
+                    border: "none",
+                    borderTop: "1px solid var(--border-subtle)",
+                    margin: "0.625rem 0",
+                  }}
+                />
+              </>
+            )}
+
+            {/* Todo list */}
+            {isLoading && (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
+                Loading...
+              </p>
+            )}
+            {!isLoading && visibleTodos.length === 0 && (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
+                {selectedProject ? `No tasks in "${selectedProject.name}"` : "No tasks yet"}
+              </p>
+            )}
+            {!isLoading && todayTodos.length > 0 && remainingTodos.length > 0 && (
+              <div style={{ marginBottom: "0.5rem" }}>
+                <span
+                  style={{
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Other Tasks
+                </span>
+              </div>
+            )}
+            {remainingTodos.map((todo) => {
               const proj = projects?.find((p) => p.id === todo.project_id);
               return (
                 <TodoItem
@@ -613,102 +704,82 @@ export function TodoPanel({
                 />
               );
             })}
-            <hr
-              style={{
-                border: "none",
-                borderTop: "1px solid var(--border-subtle)",
-                margin: "0.625rem 0",
-              }}
-            />
           </>
         )}
-
-        {/* Todo list */}
-        {isLoading && (
-          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
-            Loading...
-          </p>
-        )}
-        {!isLoading && visibleTodos.length === 0 && (
-          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
-            {selectedProject ? `No tasks in "${selectedProject.name}"` : "No tasks yet"}
-          </p>
-        )}
-        {!isLoading && todayTodos.length > 0 && remainingTodos.length > 0 && (
-          <div style={{ marginBottom: "0.5rem" }}>
-            <span
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-              }}
-            >
-              Other Tasks
-            </span>
-          </div>
-        )}
-        {remainingTodos.map((todo) => {
-          const proj = projects?.find((p) => p.id === todo.project_id);
-          return (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onComplete={onComplete}
-              onReopen={onReopen}
-              onEdit={setEditTodo}
-              onToggleToday={onToggleToday}
-              projectName={projectFilter == null ? proj?.name : undefined}
-              isNextAction={proj?.next_action_id === todo.id}
-            />
-          );
-        })}
 
         {/* Settings section */}
         {settings && (
           <div
             style={{
-              marginTop: "1.25rem",
+              marginTop: isTasksCollapsed ? "0.625rem" : "1.25rem",
               paddingTop: "0.875rem",
-              borderTop: "1px solid var(--border-subtle)",
+              borderTop: isTasksCollapsed ? "none" : "1px solid var(--border-subtle)",
             }}
           >
-            <span
+            <button
+              onClick={() => {
+                setIsSettingsCollapsed((prev) => {
+                  const next = !prev;
+                  localStorage.setItem(SETTINGS_COLLAPSED_KEY, String(next));
+                  return next;
+                });
+              }}
+              aria-label={isSettingsCollapsed ? "Expand settings" : "Collapse settings"}
               style={{
-                display: "block",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
                 fontSize: "1rem",
                 fontWeight: 700,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
                 color: "var(--text-muted)",
-                marginBottom: "0.625rem",
+                fontFamily: "inherit",
+                marginBottom: isSettingsCollapsed ? 0 : "0.625rem",
               }}
             >
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  transition: "transform 0.2s",
+                  transform: isSettingsCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                  display: "inline-block",
+                }}
+              >
+                ▾
+              </span>
               Settings
-            </span>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.8125rem",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={focusMode}
-                onChange={(e) => onToggleFocusMode?.(e.target.checked)}
-                style={{ accentColor: "var(--accent)", cursor: "pointer" }}
-              />
-              Focus mode
-            </label>
-            <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", margin: 0 }}>
-              Quiet hours: {quietStart}:00 – {quietEnd}:00
-            </p>
+            </button>
+            {!isSettingsCollapsed && (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.8125rem",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={focusMode}
+                    onChange={(e) => onToggleFocusMode?.(e.target.checked)}
+                    style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                  />
+                  Focus mode
+                </label>
+                <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", margin: 0 }}>
+                  Quiet hours: {quietStart}:00 – {quietEnd}:00
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

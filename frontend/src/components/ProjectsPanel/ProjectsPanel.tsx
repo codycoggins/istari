@@ -3,6 +3,8 @@ import type { Project } from "../../types/project";
 import type { Todo } from "../../types/todo";
 import type { ProjectUpdatePayload } from "../../api/projects";
 
+const PROJECTS_COLLAPSED_KEY = "istari-projects-collapsed";
+
 const STATUS_CYCLE: Array<Project["status"]> = ["active", "paused", "complete"];
 
 const STATUS_STYLE: Record<Project["status"], { color: string; bg: string; label: string }> = {
@@ -193,7 +195,19 @@ export function ProjectsPanel({
   onRefresh,
   onUpdateProject,
 }: ProjectsPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(
+    () => localStorage.getItem(PROJECTS_COLLAPSED_KEY) === "true",
+  );
+
   if (!isLoading && projects.length === 0) return null;
+
+  function toggleCollapsed() {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(PROJECTS_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  }
 
   return (
     <div
@@ -208,70 +222,94 @@ export function ProjectsPanel({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "0.625rem",
+          marginBottom: isCollapsed ? 0 : "0.625rem",
         }}
       >
-        <span
+        <button
+          onClick={toggleCollapsed}
+          aria-label={isCollapsed ? "Expand projects" : "Collapse projects"}
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.3rem",
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
             fontSize: "1rem",
             fontWeight: 700,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             color: "var(--text-muted)",
-          }}
-        >
-          Projects
-        </span>
-        <button
-          onClick={onRefresh}
-          aria-label="Refresh projects"
-          disabled={isLoading}
-          title="Refresh"
-          style={{
-            background: "none",
-            border: "1px solid var(--border-default)",
-            borderRadius: "5px",
-            padding: "0.25rem 0.5rem",
-            cursor: isLoading ? "not-allowed" : "pointer",
-            fontSize: "0.75rem",
-            color: isLoading ? "var(--text-muted)" : "var(--text-secondary)",
             fontFamily: "inherit",
-            lineHeight: 1,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.borderColor = "var(--border-accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "var(--border-default)";
-            e.currentTarget.style.color = isLoading ? "var(--text-muted)" : "var(--text-secondary)";
           }}
         >
-          ↻
+          <span
+            style={{
+              fontSize: "0.75rem",
+              transition: "transform 0.2s",
+              transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+              display: "inline-block",
+            }}
+          >
+            ▾
+          </span>
+          Projects
         </button>
+        {!isCollapsed && (
+          <button
+            onClick={onRefresh}
+            aria-label="Refresh projects"
+            disabled={isLoading}
+            title="Refresh"
+            style={{
+              background: "none",
+              border: "1px solid var(--border-default)",
+              borderRadius: "5px",
+              padding: "0.25rem 0.5rem",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              fontSize: "0.75rem",
+              color: isLoading ? "var(--text-muted)" : "var(--text-secondary)",
+              fontFamily: "inherit",
+              lineHeight: 1,
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.borderColor = "var(--border-accent)";
+                e.currentTarget.style.color = "var(--accent)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border-default)";
+              e.currentTarget.style.color = isLoading ? "var(--text-muted)" : "var(--text-secondary)";
+            }}
+          >
+            ↻
+          </button>
+        )}
       </div>
 
       {/* Project cards */}
-      {isLoading ? (
-        <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>Loading...</p>
-      ) : (
-        <>
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              todos={todos}
-              isSelected={selectedProjectId === project.id}
-              onSelect={() =>
-                onSelectProject(selectedProjectId === project.id ? null : project.id)
-              }
-              onUpdateStatus={(status) => onUpdateProject?.(project.id, { status })}
-            />
-          ))}
-        </>
+      {!isCollapsed && (
+        isLoading ? (
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>Loading...</p>
+        ) : (
+          <>
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                todos={todos}
+                isSelected={selectedProjectId === project.id}
+                onSelect={() =>
+                  onSelectProject(selectedProjectId === project.id ? null : project.id)
+                }
+                onUpdateStatus={(status) => onUpdateProject?.(project.id, { status })}
+              />
+            ))}
+          </>
+        )
       )}
     </div>
   );

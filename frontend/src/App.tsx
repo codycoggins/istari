@@ -40,6 +40,17 @@ export default function App() {
   const [projectFilter, setProjectFilter] = useState<number | null>(null);
   const chatSendRef = useRef<((msg: string) => void) | null>(null);
 
+  // ── Narrow-screen detection (disables drag resize below 768px) ──
+  const [isNarrow, setIsNarrow] = useState<boolean>(
+    () => window.matchMedia("(max-width: 768px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // ── Resizable sidebar ──────────────────────────────────
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -169,10 +180,10 @@ export default function App() {
             onAuthFailure={() => setIsAuthenticated(false)}
           />
         </main>
-        <aside className="todo-sidebar" style={{ width: sidebarWidth }}>
-          {/* Drag handle */}
+        <aside className="todo-sidebar" style={isNarrow ? undefined : { width: sidebarWidth }}>
+          {/* Drag handle — hidden on narrow screens */}
           <div
-            onMouseDown={handleResizeMouseDown}
+            onMouseDown={isNarrow ? undefined : handleResizeMouseDown}
             style={{
               position: "absolute",
               left: 0,
