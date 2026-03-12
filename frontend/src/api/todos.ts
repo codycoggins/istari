@@ -13,6 +13,7 @@ export interface TodoUpdatePayload {
   due_date: string | null;
   today_date?: string | null;
   tags: string[];
+  project_id?: number | null;
 }
 
 export async function listTodos(): Promise<{ todos: Todo[] }> {
