@@ -66,6 +66,7 @@ def main() -> None:
 
     from istari.worker.jobs.backup import backup_sync
     from istari.worker.jobs.gmail_digest import gmail_digest_sync
+    from istari.worker.jobs.project_staleness import project_staleness_sync
     from istari.worker.jobs.staleness import staleness_sync
 
     scheduler = BlockingScheduler()
@@ -76,6 +77,9 @@ def main() -> None:
     morning_cron = schedules.get("gmail_digest_morning", {}).get("cron", "0 8 * * *")
     afternoon_cron = schedules.get("gmail_digest_afternoon", {}).get("cron", "0 14 * * *")
     staleness_cron = schedules.get("staleness_check", {}).get("cron", "0 8 * * *")
+    project_staleness_cron = schedules.get(
+        "project_staleness_check", {}
+    ).get("cron", "0 8 * * 1,3,5")
 
     scheduler.add_job(
         respect_quiet_hours(gmail_digest_sync),
@@ -91,6 +95,11 @@ def main() -> None:
         respect_quiet_hours(staleness_sync),
         CronTrigger.from_crontab(staleness_cron),
         id="staleness_check",
+    )
+    scheduler.add_job(
+        respect_quiet_hours(project_staleness_sync),
+        CronTrigger.from_crontab(project_staleness_cron),
+        id="project_staleness_check",
     )
 
     backup_cron = schedules.get("backup_daily", {}).get("cron", "0 2 * * *")

@@ -13,6 +13,7 @@
 | 7 | Security hardening — auth middleware, Docker networking, nginx headers, rate limiting, credential audit              |
 | 8a | Projects core — Project model, ProjectManager, agent tools, REST API, next-action designation                        |
 | 8b | Projects UI — ProjectsPanel, TodoPanel filter bar, next-action badge, project pill on todo items, keyboard shortcuts |
+| 8c | Proactive project staleness — worker job, Mon/Wed/Fri nudge notifications, stale-project surfacing in get_priorities |
 
 ---
 
@@ -162,6 +163,8 @@ Design the `Todo` schema with these fields from Phase 8a migration so 8d is a no
 
 These are confirmed desirable but not yet sequenced:
 
+- **edit projects panel** Implement similar to edit tasks panel
+- **Persist recent message history cross-clients** to help with client changes or messages not delivered because client disconnected.
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
