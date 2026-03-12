@@ -69,3 +69,4 @@ memory/goals.md
 # Log files (volume-mounted from Docker containers)
 logs/*.log
 logs/*.log.*
+.claude/worktrees/
