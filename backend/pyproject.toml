@@ -42,6 +42,7 @@ dev = [
     "pytest-cov>=6.0",
     "ruff>=0.8",
     "mypy>=1.13",
+    "types-PyYAML>=6.0",
     "httpx>=0.28",
     "aiosqlite>=0.20",
 ]
