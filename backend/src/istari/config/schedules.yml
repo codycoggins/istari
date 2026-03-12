@@ -17,6 +17,10 @@ jobs:
     cron: "0 3 * * *"
     description: Pattern learning update (overnight)
 
+  project_staleness_check:
+    cron: "0 8 * * 1,3,5"
+    description: Proactive project staleness nudges (Mon/Wed/Fri morning)
+
   backup_daily:
     cron: "0 2 * * *"
     description: Encrypted pg_dump to backup destination (2am daily)

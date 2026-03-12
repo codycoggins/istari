@@ -330,6 +330,16 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
                 today_tag = " ★ Today" if t.id in today_ids else ""
                 lines.append(f"{i}. {t.title}{quad_tag}{priority_tag}{today_tag}")
 
+        # Surface stale projects as a follow-up nudge
+        stale_projects = await proj_mgr.get_stale(days=settings.project_staleness_days)
+        if stale_projects:
+            lines.append("")
+            names = ", ".join(f"**{p.name}**" for p in stale_projects)
+            lines.append(
+                f"Also, these projects haven't moved recently: {names} — "
+                "want to pick a next action for any of them?"
+            )
+
         return "\n".join(lines)
 
     return [

@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     quiet_hours_start: int = 22
     quiet_hours_end: int = 8
     stale_todo_days: int = 3
+    project_staleness_days: int = 7
 
     # TODO priorities
     priorities_max: int = 5  # max tasks returned by get_priorities tool + /todos/prioritized
