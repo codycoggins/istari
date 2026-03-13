@@ -4,6 +4,7 @@ See `istari-project-outline.md` for the full project specification.
 
 ## Current Status
 - **Phases 1–8c complete** — ReAct agent, memory, Eisenhower matrix, MCP integration, security hardening, projects with full UI, proactive project staleness; **366 backend + 34 frontend tests passing**, no exclusions, ruff clean
+- **Sidebar UX polish** — expand/collapse toggles (▾ chevron) on Projects, Tasks, and Settings panels; collapse state persisted to localStorage (`istari-projects-collapsed`, `istari-tasks-collapsed`, `istari-settings-collapsed`); Settings borderTop hidden when Tasks is collapsed; responsive sidebar width fix: drag-resize only applies on wide screens (>768px), narrow screens use CSS `width: 100%`; `window.matchMedia` mock added to `tests/setup.ts`
 - **Apple Calendar:** EventKit blocked by MDM (Abacus IT / SentinelOne) — using `CALENDAR_BACKEND=google`; AppleCalendarReader code complete but unusable without IT whitelisting. All verification checks passing: `pip install`, `ruff check`, `pytest`, `npm install`, `eslint`, `tsc --noEmit`, `vitest`
 - **mypy: 1 pre-existing unused-ignore in `tools/mcp/client.py`** — all other files clean. `ignore_missing_imports = true` in pyproject.toml suppresses library stub warnings (pgvector, google APIs, apscheduler). Use `dict[str, Any]` for dynamic/JSON dicts (not `dict[str, object]`). Run `mypy src/` to check your work.
 - **What's working end-to-end:**
