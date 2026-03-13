@@ -81,12 +81,25 @@ def _format_tool_status(tool_name: str, args: dict[str, Any]) -> str:
 
 _MAX_TURNS = 8
 _MAX_PROMPT_MEMORIES = 20
-_MEMORY_DIR = Path(__file__).resolve().parents[4] / "memory"
+
+# In dev (editable install): .../src/istari/agents/chat.py → parents[4] = project root
+# In Docker (regular install): lives under site-packages → fall back to WORKDIR (/app)
+_PROJECT_ROOT = (
+    Path.cwd()
+    if "site-packages" in str(Path(__file__).resolve())
+    else Path(__file__).resolve().parents[4]
+)
+_MEMORY_DIR = _PROJECT_ROOT / "memory"
 
 _FALLBACK_SOUL = """\
 You are Istari, a personal AI assistant.
 You help the user manage their TODOs, memories, email, calendar, and local files.
 Be concise, action-oriented, and use the available tools when relevant.
+
+IMPORTANT: Never claim to have performed any action without first calling the
+appropriate tool. If you say "I've added that task" or "Done!", the tool call
+must have happened in this same turn. Do not confirm mutations based on prior
+conversation history alone — always invoke the tool.
 """
 
 
