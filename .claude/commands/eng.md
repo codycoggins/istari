@@ -83,6 +83,8 @@ From within the worktree directory, implement the approved plan:
 
 ## Phase 5: Finish
 
+Update the ROADMAP.md and move the task item to the Completed Phases section with a summary
+
 From within the worktree directory, run the full finish workflow (test → update CLAUDE.md → commit):
 
 @.claude/commands/finish.md
