@@ -70,3 +70,4 @@ memory/goals.md
 logs/*.log
 logs/*.log.*
 .claude/worktrees/
+.claude/plans/

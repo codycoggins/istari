@@ -1,9 +1,268 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Project } from "../../types/project";
 import type { Todo } from "../../types/todo";
 import type { ProjectUpdatePayload } from "../../api/projects";
 
 const PROJECTS_COLLAPSED_KEY = "istari-projects-collapsed";
+
+// ── Detail / edit panel ───────────────────────────────────
+function ProjectDetailPanel({
+  project,
+  onClose,
+  onSave,
+}: {
+  project: Project;
+  onClose: () => void;
+  onSave: (id: number, updates: ProjectUpdatePayload) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    name: project.name,
+    description: project.description ?? "",
+    goal: project.goal ?? "",
+    status: project.status,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const set =
+    (field: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setIsSaving(true);
+    setError(null);
+    const payload: ProjectUpdatePayload = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      goal: form.goal.trim() || null,
+      status: form.status,
+    };
+    try {
+      await onSave(project.id, payload);
+      onClose();
+    } catch {
+      setError("Save failed — please try again.");
+      setIsSaving(false);
+    }
+  };
+
+  const fieldStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.375rem",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: "0.6875rem",
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  };
+  const inputStyle: React.CSSProperties = {
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border-default)",
+    borderRadius: "6px",
+    padding: "0.5rem 0.75rem",
+    color: "var(--text-primary)",
+    fontSize: "0.875rem",
+    fontFamily: "inherit",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+  const textareaStyle: React.CSSProperties = {
+    ...inputStyle,
+    resize: "vertical",
+    minHeight: "5rem",
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1.5rem",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-default)",
+          borderRadius: "10px",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.625rem",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid var(--border-subtle)",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ color: "var(--accent)", fontSize: "0.875rem" }}>✦</span>
+          <span
+            style={{
+              flex: 1,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+            }}
+          >
+            Edit Project
+          </span>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: "1rem",
+              lineHeight: 1,
+              padding: "0.1rem 0.25rem",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Form body */}
+        <div
+          style={{
+            padding: "1.125rem 1.25rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+          }}
+        >
+          {/* Name */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={set("name")}
+              style={inputStyle}
+              autoFocus
+            />
+          </div>
+
+          {/* Goal */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Goal</label>
+            <textarea
+              value={form.goal}
+              onChange={set("goal")}
+              style={textareaStyle}
+              placeholder="What does success look like?"
+            />
+          </div>
+
+          {/* Description */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={form.description}
+              onChange={set("description")}
+              style={textareaStyle}
+              placeholder="Additional context or notes…"
+            />
+          </div>
+
+          {/* Status */}
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Status</label>
+            <select value={form.status} onChange={set("status")} style={inputStyle}>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="complete">Complete</option>
+            </select>
+          </div>
+
+          {error && (
+            <p style={{ color: "var(--q1)", fontSize: "0.8125rem", margin: 0 }}>{error}</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "0.875rem 1.25rem",
+            borderTop: "1px solid var(--border-subtle)",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "0.625rem",
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "6px",
+              border: "1px solid var(--border-default)",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              fontSize: "0.875rem",
+              fontFamily: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || !form.name.trim()}
+            style={{
+              padding: "0.5rem 1.25rem",
+              borderRadius: "6px",
+              border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
+              background: isSaving ? "transparent" : "var(--accent-dim)",
+              color: isSaving ? "var(--text-muted)" : "var(--accent)",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              fontFamily: "inherit",
+              cursor: isSaving ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_CYCLE: Array<Project["status"]> = ["active", "paused", "complete"];
 
@@ -29,14 +288,17 @@ function ProjectCard({
   isSelected,
   onSelect,
   onUpdateStatus,
+  onEdit,
 }: {
   project: Project;
   todos: Todo[];
   isSelected: boolean;
   onSelect: () => void;
   onUpdateStatus: (status: Project["status"]) => void;
+  onEdit: (project: Project) => void;
 }) {
   const [statusHovered, setStatusHovered] = useState(false);
+  const [pencilHovered, setPencilHovered] = useState(false);
   const projectTodos = todos.filter((t) => t.project_id === project.id);
   const activeTodos = projectTodos.filter(
     (t) => t.status !== "complete" && t.status !== "deferred",
@@ -52,6 +314,8 @@ function ProjectCard({
     onUpdateStatus(STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] as Project["status"]);
   }
 
+  const hasTagsRow = !!(project.goal || activeTodos.length > 0 || nextAction);
+
   return (
     <div
       onClick={onSelect}
@@ -65,122 +329,166 @@ function ProjectCard({
         overflow: "hidden",
       }}
     >
-      <div style={{ padding: "0.5rem 0.625rem" }}>
-        {/* Project name row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.375rem",
-            marginBottom: nextAction || project.goal ? "0.3rem" : 0,
-          }}
-        >
+      {/* Outer row: content column + edit button */}
+      <div
+        style={{
+          padding: "0.5rem 0.625rem",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "0.5rem",
+        }}
+      >
+        {/* Content column */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Name */}
           <span
             style={{
-              flex: 1,
+              display: "block",
               fontSize: "0.8125rem",
               fontWeight: 600,
               color: isSelected ? "var(--accent)" : "var(--text-primary)",
               lineHeight: 1.3,
-              minWidth: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              marginBottom: hasTagsRow ? "0.3rem" : 0,
             }}
           >
             {project.name}
           </span>
 
-          {/* Todo count badge */}
-          {activeTodos.length > 0 && (
-            <span
-              style={{
-                fontSize: "0.5625rem",
-                padding: "0.1rem 0.35rem",
-                borderRadius: "3px",
-                background: "var(--bg-surface)",
-                color: "var(--text-muted)",
-                border: "1px solid var(--border-subtle)",
-                flexShrink: 0,
-              }}
-            >
-              {activeTodos.length}
-            </span>
-          )}
-
-          {/* Status badge (clickable to cycle) */}
-          <button
-            onClick={cycleStatus}
-            onMouseEnter={() => setStatusHovered(true)}
-            onMouseLeave={() => setStatusHovered(false)}
-            title="Click to change status"
-            style={{
-              background: statusHovered ? "var(--bg-surface)" : statusStyle.bg,
-              color: statusStyle.color,
-              border: "none",
-              borderRadius: "3px",
-              padding: "0.1rem 0.35rem",
-              fontSize: "0.5625rem",
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              cursor: "pointer",
-              flexShrink: 0,
-              transition: "background 0.15s",
-            }}
-          >
-            {statusStyle.label}
-          </button>
-        </div>
-
-        {/* Goal subtitle */}
-        {project.goal && (
-          <div
-            style={{
-              fontSize: "0.6875rem",
-              color: "var(--text-muted)",
-              lineHeight: 1.4,
-              marginBottom: nextAction ? "0.3rem" : 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {project.goal}
-          </div>
-        )}
-
-        {/* Next action */}
-        {nextAction && (
+          {/* Tags row: status + count + goal + next-action */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
+              flexWrap: "wrap",
               gap: "0.3rem",
             }}
           >
-            <span
+            {/* Status badge (clickable to cycle) */}
+            <button
+              onClick={cycleStatus}
+              onMouseEnter={() => setStatusHovered(true)}
+              onMouseLeave={() => setStatusHovered(false)}
+              title="Click to change status"
               style={{
-                fontSize: "0.5625rem",
-                fontWeight: 700,
-                color: "var(--accent)",
+                background: statusHovered ? "var(--bg-surface)" : statusStyle.bg,
+                color: statusStyle.color,
+                border: "none",
+                borderRadius: "3px",
+                padding: "0.1rem 0.4rem",
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                letterSpacing: "0.02em",
+                cursor: "pointer",
                 flexShrink: 0,
+                transition: "background 0.15s",
+                fontFamily: "inherit",
               }}
             >
-              →
-            </span>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                color: "var(--text-secondary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {nextAction.title}
-            </span>
+              {statusStyle.label}
+            </button>
+
+            {/* Todo count badge */}
+            {activeTodos.length > 0 && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  background: "var(--bg-surface)",
+                  color: "var(--text-muted)",
+                  flexShrink: 0,
+                }}
+              >
+                {activeTodos.length}
+              </span>
+            )}
+
+            {/* Goal badge */}
+            {project.goal && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  background: "var(--bg-surface)",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border-subtle)",
+                  maxWidth: "10rem",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+                title={project.goal}
+              >
+                {project.goal}
+              </span>
+            )}
+
+            {/* Next-action badge */}
+            {nextAction && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.2rem",
+                  border: "1px solid var(--border-accent)",
+                  color: "var(--accent)",
+                  background: "var(--accent-dim)",
+                  borderRadius: "3px",
+                  padding: "0.1rem 0.4rem",
+                  fontSize: "0.625rem",
+                  fontWeight: 600,
+                  maxWidth: "12rem",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+              >
+                → {nextAction.title}
+              </span>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Edit button — far right */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(project); }}
+          onMouseEnter={() => setPencilHovered(true)}
+          onMouseLeave={() => setPencilHovered(false)}
+          aria-label="Edit project"
+          style={{
+            background: "none",
+            border: "none",
+            padding: "0.1rem",
+            cursor: "pointer",
+            flexShrink: 0,
+            color: pencilHovered ? "var(--accent)" : "var(--text-muted)",
+            transition: "color 0.15s",
+            lineHeight: 1,
+            marginTop: "0.05rem",
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -198,6 +506,7 @@ export function ProjectsPanel({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(
     () => localStorage.getItem(PROJECTS_COLLAPSED_KEY) === "true",
   );
+  const [editProject, setEditProject] = useState<Project | null>(null);
 
   if (!isLoading && projects.length === 0) return null;
 
@@ -306,10 +615,22 @@ export function ProjectsPanel({
                   onSelectProject(selectedProjectId === project.id ? null : project.id)
                 }
                 onUpdateStatus={(status) => onUpdateProject?.(project.id, { status })}
+                onEdit={setEditProject}
               />
             ))}
           </>
         )
+      )}
+
+      {editProject && (
+        <ProjectDetailPanel
+          project={editProject}
+          onClose={() => setEditProject(null)}
+          onSave={async (id, updates) => {
+            await onUpdateProject?.(id, updates);
+            setEditProject(null);
+          }}
+        />
       )}
     </div>
   );
