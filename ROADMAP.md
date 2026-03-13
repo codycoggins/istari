@@ -163,9 +163,7 @@ Design the `Todo` schema with these fields from Phase 8a migration so 8d is a no
 
 These are confirmed desirable but not yet sequenced:
 
-- **edit projects panel** Implement similar to edit tasks panel
 - **Persist recent message history cross-clients** to help with client changes or messages not delivered because client disconnected.
-- Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
 - **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
