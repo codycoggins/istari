@@ -32,6 +32,8 @@ services:
       - ./secrets:/app/secrets
       # Persistent logs — readable on host via Read tool without docker exec
       - ./logs:/app/logs
+      # Agent personality (SOUL.md) and user profile (USER.md) — editable on host
+      - ./memory:/app/memory
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
     volumes:
       - ./secrets:/app/secrets
       - ./logs:/app/logs
+      - ./memory:/app/memory
     depends_on:
       postgres:
         condition: service_healthy

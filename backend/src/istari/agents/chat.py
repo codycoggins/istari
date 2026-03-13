@@ -79,14 +79,40 @@ def _format_tool_status(tool_name: str, args: dict[str, Any]) -> str:
             label = tool_name.replace("_", " ").title()
             return f"Running {label}..."
 
+# Keywords that indicate the user is requesting a mutation (create/update/delete)
+_MUTATION_VERBS = (
+    "add", "create", "new todo", "new task", "mark", "update", "complete",
+    "finish", "done", "set", "remove", "delete", "remember", "save",
+)
+
+
+def _looks_like_mutation(user_message: str) -> bool:
+    """Return True if the message appears to request a data-modifying action."""
+    lower = user_message.lower()
+    return any(verb in lower for verb in _MUTATION_VERBS)
+
+
 _MAX_TURNS = 8
 _MAX_PROMPT_MEMORIES = 20
-_MEMORY_DIR = Path(__file__).resolve().parents[4] / "memory"
+
+# In dev (editable install): .../src/istari/agents/chat.py → parents[4] = project root
+# In Docker (regular install): lives under site-packages → fall back to WORKDIR (/app)
+_PROJECT_ROOT = (
+    Path.cwd()
+    if "site-packages" in str(Path(__file__).resolve())
+    else Path(__file__).resolve().parents[4]
+)
+_MEMORY_DIR = _PROJECT_ROOT / "memory"
 
 _FALLBACK_SOUL = """\
 You are Istari, a personal AI assistant.
 You help the user manage their TODOs, memories, email, calendar, and local files.
 Be concise, action-oriented, and use the available tools when relevant.
+
+IMPORTANT: Never claim to have performed any action without first calling the
+appropriate tool. If you say "I've added that task" or "Done!", the tool call
+must have happened in this same turn. Do not confirm mutations based on prior
+conversation history alone — always invoke the tool.
 """
 
 
@@ -193,6 +219,7 @@ async def run_agent(
 
     agent_start = time.monotonic()
     logger.info("Agent start | user=%r | tools=%s", user_message[:80], [t.name for t in tools])
+    context_has_tool_calls = False
 
     for turn in range(_MAX_TURNS):
         logger.debug("Agent turn %d/%d | %d msgs", turn + 1, _MAX_TURNS, len(messages))
@@ -215,11 +242,25 @@ async def run_agent(
         choice = result.choices[0]
         msg = choice.message
 
-        # No tool calls — this is the final response
+        # No tool calls — check if the response is a false mutation claim
         if not getattr(msg, "tool_calls", None):
+            content = msg.content or ""
+            if turn == 0 and _looks_like_mutation(user_message) and not context_has_tool_calls:
+                logger.warning(
+                    "Agent turn 1 claimed mutation without tool call — injecting correction"
+                )
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You described performing an action but didn't call any tools. "
+                        "Please call the appropriate tool now to actually perform the action."
+                    ),
+                })
+                continue
             elapsed = time.monotonic() - agent_start
             logger.info("Agent done | turns=%d | %.2fs", turn + 1, elapsed)
-            return msg.content or ""
+            return content
 
         # Add assistant message with tool calls to context
         messages.append({
@@ -239,6 +280,7 @@ async def run_agent(
         })
 
         # Execute each tool call and append results
+        context_has_tool_calls = True
         for tc in msg.tool_calls:
             tool_name = tc.function.name
             tool = tool_map.get(tool_name)
