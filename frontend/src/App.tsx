@@ -102,6 +102,10 @@ export default function App() {
     chatSendRef.current?.("What should I work on?");
   }, []);
 
+  const handleRegisterSend = useCallback((fn: (msg: string) => void) => {
+    chatSendRef.current = fn;
+  }, []);
+
   const handleToggleFocusMode = useCallback(
     (enabled: boolean) => {
       updateSetting("focus_mode", String(enabled));
@@ -174,9 +178,7 @@ export default function App() {
         <main className="chat-area">
           <ChatPanel
             onTodoCreated={handleTodoCreated}
-            onRegisterSend={(fn) => {
-              chatSendRef.current = fn;
-            }}
+            onRegisterSend={handleRegisterSend}
             onAuthFailure={() => setIsAuthenticated(false)}
           />
         </main>
