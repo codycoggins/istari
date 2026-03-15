@@ -30,6 +30,7 @@ dependencies = [
     "mcp>=1.0",
     "itsdangerous>=2.2",
     "ddgs>=9.0",
+    "python-dateutil>=2.9",
 ]
 
 [project.optional-dependencies]

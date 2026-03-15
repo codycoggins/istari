@@ -105,10 +105,24 @@ async def get_todo_context(todo_id: int, db: DB) -> TodoContextResponse:
 
 @router.post("/{todo_id}/complete", response_model=TodoResponse)
 async def complete_todo(todo_id: int, db: DB) -> TodoResponse:
+    import logging
+
+    _logger = logging.getLogger(__name__)
     mgr = TodoManager(db)
+    # Fetch before completing so we have the recurrence_rule
+    original = await mgr.get(todo_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    recurrence_rule = original.recurrence_rule
     todo = await mgr.complete(todo_id)
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
+    # Auto-spawn next recurrence instance when completing a recurring todo
+    if recurrence_rule:
+        try:
+            await mgr.create_next_recurrence(original)
+        except Exception:
+            _logger.warning("Failed to create next recurrence for todo %d", todo_id, exc_info=True)
     await db.commit()
     await db.refresh(todo)
     return TodoResponse.model_validate(todo)

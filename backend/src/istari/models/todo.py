@@ -47,6 +47,7 @@ class Todo(TimestampMixin, Base):
     source: Mapped[str | None] = mapped_column(String(100))
     source_link: Mapped[str | None] = mapped_column(String(1000))
     due_date: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    recurrence_rule: Mapped[str | None] = mapped_column(String(200), nullable=True)
     today_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     last_prompted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
