@@ -67,11 +67,17 @@ async def chat_ws(ws: WebSocket) -> None:
 
     # Load history once at connection time
     async with async_session_factory() as session:
-        history = await ConversationStore(session).load_history()
+        full_history = await ConversationStore(session).load_history()
+
+    # Strip metadata — LLM messages must only contain role + content
+    history = [{"role": m["role"], "content": m["content"]} for m in full_history]
 
     rate_limiter = _RateLimiter(limit=_WS_RATE_LIMIT, window=_WS_RATE_WINDOW)
 
     try:
+        # Hydrate the client with recent history so a new tab/refresh shows prior context
+        await ws.send_json({"type": "history", "messages": full_history})
+
         while True:
             data = await ws.receive_json()
             user_message = data.get("message", "").strip()

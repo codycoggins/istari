@@ -147,3 +147,75 @@ describe("useChat — status message handling", () => {
     expect(result.current.messages).toHaveLength(0);
   });
 });
+
+describe("useChat — history message handling", () => {
+  it("type=history populates messages when state is empty (new tab / page refresh)", () => {
+    const result = renderUseChat();
+
+    sendServerMessage({
+      type: "history",
+      messages: [
+        { id: "1", role: "user", content: "Hello", created_at: "2026-03-15T08:00:00Z" },
+        { id: "2", role: "assistant", content: "Hi!", created_at: "2026-03-15T08:00:01Z" },
+      ],
+    });
+
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[0].id).toBe("1");
+    expect(result.current.messages[0].role).toBe("user");
+    expect(result.current.messages[0].content).toBe("Hello");
+    expect(result.current.messages[0].createdAt).toBe("2026-03-15T08:00:00Z");
+    expect(result.current.messages[1].role).toBe("assistant");
+    expect(result.current.messages[1].content).toBe("Hi!");
+  });
+
+  it("type=history does NOT replace messages on same-session reconnect", () => {
+    const result = renderUseChat();
+
+    // Simulate a prior response already in state
+    sendServerMessage({
+      type: "response",
+      id: "live-1",
+      role: "assistant",
+      content: "Already here.",
+      created_at: "2026-03-15T07:59:00Z",
+      todo_created: false,
+      todo_updated: false,
+      memory_created: false,
+    });
+    expect(result.current.messages).toHaveLength(1);
+
+    // Reconnect delivers history — should be ignored
+    sendServerMessage({
+      type: "history",
+      messages: [
+        { id: "old-1", role: "user", content: "Old message", created_at: "2026-03-15T07:58:00Z" },
+      ],
+    });
+
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0].id).toBe("live-1");
+  });
+
+  it("type=history with empty messages array leaves state empty", () => {
+    const result = renderUseChat();
+
+    sendServerMessage({ type: "history", messages: [] });
+
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it("type=history does not affect isLoading or currentStatus", () => {
+    const result = renderUseChat();
+
+    sendServerMessage({
+      type: "history",
+      messages: [
+        { id: "1", role: "user", content: "Hello", created_at: "2026-03-15T08:00:00Z" },
+      ],
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.currentStatus).toBe("");
+  });
+});
