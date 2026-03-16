@@ -1,6 +1,7 @@
 """TODO agent tools — create, list, update, and prioritize TODOs."""
 
 import contextlib
+import datetime
 import json
 import logging
 from typing import Any
@@ -73,6 +74,19 @@ async def _classify_titles(titles: list[str]) -> list[dict[str, Any]]:
 def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentTool]:
     """Return TODO tools bound to the given session and context."""
 
+    def _due_tag(t: Todo) -> str:
+        """Format a due date tag for display in tool output."""
+        if t.due_date is None:
+            return ""
+        now = datetime.datetime.now(datetime.UTC)
+        due = t.due_date if t.due_date.tzinfo else t.due_date.replace(tzinfo=datetime.UTC)
+        diff = (due - now).days
+        if diff < 0:
+            return f" [OVERDUE {abs(diff)}d]"
+        if diff == 0:
+            return " [due TODAY]"
+        return f" [due in {diff}d]"
+
     async def list_todos(filter: str = "open") -> str:
         mgr = TodoManager(session)
         if filter == "all":
@@ -95,7 +109,9 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
             status_tag = f" [{t.status.value}]" if t.status != TodoStatus.OPEN else ""
             quadrant = _QUADRANT_LABELS.get((t.urgent, t.important), "")
             quad_tag = f" ({quadrant})" if quadrant else ""
-            lines.append(f"- (id={t.id}) {t.title}{status_tag}{quad_tag}")
+            due_tag = _due_tag(t)
+            recur_tag = " [↻]" if t.recurrence_rule else ""
+            lines.append(f"- (id={t.id}) {t.title}{status_tag}{quad_tag}{due_tag}{recur_tag}")
         return "\n".join(lines)
 
     async def create_todos(titles: list[str]) -> str:
@@ -342,6 +358,75 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
 
         return "\n".join(lines)
 
+    async def set_due_date(query: str, due_date: str) -> str:
+        """Set or clear the due date on a TODO."""
+        mgr = TodoManager(session)
+        new_due: datetime.datetime | None = None
+        if due_date:
+            try:
+                parsed = datetime.date.fromisoformat(due_date)
+                new_due = datetime.datetime(
+                    parsed.year, parsed.month, parsed.day, tzinfo=datetime.UTC
+                )
+            except ValueError:
+                return f'Invalid date format "{due_date}". Use YYYY-MM-DD.'
+
+        # Try numeric ID first
+        with contextlib.suppress(ValueError, TypeError):
+            todo_id = int(query)
+            todo = await mgr.get(todo_id)
+            if todo is not None:
+                await mgr.update(todo.id, due_date=new_due)
+                await session.commit()
+                context.todo_updated = True
+                if new_due:
+                    return f'Set due date on "{todo.title}" to {due_date}.'
+                return f'Cleared due date on "{todo.title}".'
+
+        # Pattern match
+        stmt = select(Todo).where(Todo.title.ilike(f"%{query}%"))
+        result = await session.execute(stmt)
+        todos = list(result.scalars().all())
+
+        if not todos:
+            return f'No TODOs found matching "{query}".'
+
+        for todo in todos:
+            await mgr.update(todo.id, due_date=new_due)
+        await session.commit()
+        context.todo_updated = True
+
+        if len(todos) == 1:
+            action = f"to {due_date}" if new_due else "(cleared)"
+            return f'Set due date on "{todos[0].title}" {action}.'
+        titles_list = [f'"{t.title}"' for t in todos]
+        action = f"to {due_date}" if new_due else "(cleared)"
+        return f"Set due date {action} on {len(todos)} TODOs: " + ", ".join(titles_list)
+
+    async def create_recurring_todo(
+        title: str, recurrence_rule: str, start_date: str = ""
+    ) -> str:
+        """Create a new recurring TODO with an RRULE and optional first due date."""
+        mgr = TodoManager(session)
+        due: datetime.datetime | None = None
+        if start_date:
+            try:
+                parsed = datetime.date.fromisoformat(start_date)
+                due = datetime.datetime(parsed.year, parsed.month, parsed.day, tzinfo=datetime.UTC)
+            except ValueError:
+                return f'Invalid start_date "{start_date}". Use YYYY-MM-DD.'
+
+        todo = await mgr.create(
+            title=title.strip(),
+            source="chat",
+            recurrence_rule=recurrence_rule,
+            due_date=due,
+        )
+        await session.commit()
+        context.todo_created = True
+        due_str = f" (first due {start_date})" if start_date else ""
+        return f'Created recurring TODO: "{todo.title}"{due_str} with rule: {recurrence_rule}'
+
     return [
         AgentTool(
             name="list_todos",
@@ -469,5 +554,56 @@ def make_todo_tools(session: AsyncSession, context: AgentContext) -> list[AgentT
             description="List the tasks the user has focused on for today.",
             parameters={"type": "object", "properties": {}, "required": []},
             fn=get_today_focus,
+        ),
+        AgentTool(
+            name="set_due_date",
+            description=(
+                "Set or clear the due date on a TODO. Pass due_date as YYYY-MM-DD, "
+                "or empty string to clear. 'query' is the task title keywords or numeric ID."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Task title keywords or numeric ID.",
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "description": "Due date as YYYY-MM-DD, or empty string to clear.",
+                    },
+                },
+                "required": ["query", "due_date"],
+            },
+            fn=set_due_date,
+        ),
+        AgentTool(
+            name="create_recurring_todo",
+            description=(
+                "Create a recurring TODO with an RRULE recurrence rule. "
+                "Examples: FREQ=WEEKLY;BYDAY=TH (weekly Thursday), "
+                "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR (every weekday), "
+                "FREQ=MONTHLY (monthly), FREQ=YEARLY (yearly). "
+                "start_date sets the first due date (YYYY-MM-DD, optional)."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Task title.",
+                    },
+                    "recurrence_rule": {
+                        "type": "string",
+                        "description": "RRULE string (RFC 5545), e.g. FREQ=WEEKLY;BYDAY=TH.",
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "First due date as YYYY-MM-DD (optional).",
+                    },
+                },
+                "required": ["title", "recurrence_rule"],
+            },
+            fn=create_recurring_todo,
         ),
     ]

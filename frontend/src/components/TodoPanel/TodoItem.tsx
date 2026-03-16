@@ -26,6 +26,27 @@ function getQuadrant(urgent?: boolean | null, important?: boolean | null) {
   return null;
 }
 
+function getDueDateInfo(dueDateStr?: string | null) {
+  if (!dueDateStr) return null;
+  const due = new Date(dueDateStr);
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueMidnight = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const diffMs = dueMidnight.getTime() - todayMidnight.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const label = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (diffDays < 0) {
+    return { text: `Overdue ${Math.abs(diffDays)}d`, color: "var(--q1)", bg: "var(--q1-bg)" };
+  }
+  if (diffDays === 0) {
+    return { text: "Due today", color: "var(--q3)", bg: "var(--q3-bg)" };
+  }
+  if (diffDays <= 3) {
+    return { text: `Due ${label}`, color: "var(--q3)", bg: "var(--q3-bg)" };
+  }
+  return { text: `Due ${label}`, color: "var(--text-muted)", bg: "var(--bg-surface)" };
+}
+
 export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday, projectName, isNextAction }: TodoItemProps) {
   const [pencilHovered, setPencilHovered] = useState(false);
   const [targetHovered, setTargetHovered] = useState(false);
@@ -37,7 +58,8 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday, pr
   const todayStr = new Date().toISOString().slice(0, 10);
   const isToday = todo.today_date === todayStr;
   const quadrant = getQuadrant(todo.urgent, todo.important);
-  const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked" || projectName || isNextAction);
+  const dueInfo = getDueDateInfo(todo.due_date);
+  const showTags = !isComplete && (quadrant || todo.status === "in_progress" || todo.status === "blocked" || projectName || isNextAction || dueInfo || todo.recurrence_rule);
 
   async function handleContextClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -190,6 +212,37 @@ export function TodoItem({ todo, onComplete, onReopen, onEdit, onToggleToday, pr
                 title={projectName}
               >
                 {projectName}
+              </span>
+            )}
+            {dueInfo && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "3px",
+                  color: dueInfo.color,
+                  background: dueInfo.bg,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {dueInfo.text}
+              </span>
+            )}
+            {todo.recurrence_rule && (
+              <span
+                style={{
+                  fontSize: "0.625rem",
+                  padding: "0.1rem 0.3rem",
+                  borderRadius: "3px",
+                  color: "var(--text-muted)",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  flexShrink: 0,
+                }}
+                title={todo.recurrence_rule}
+              >
+                ↻
               </span>
             )}
           </div>

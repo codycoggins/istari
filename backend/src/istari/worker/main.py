@@ -65,6 +65,7 @@ def main() -> None:
     logger.info("Starting Istari worker")
 
     from istari.worker.jobs.backup import backup_sync
+    from istari.worker.jobs.deadline_nudge import deadline_nudge_sync
     from istari.worker.jobs.gmail_digest import gmail_digest_sync
     from istari.worker.jobs.project_staleness import project_staleness_sync
     from istari.worker.jobs.staleness import staleness_sync
@@ -80,6 +81,7 @@ def main() -> None:
     project_staleness_cron = schedules.get(
         "project_staleness_check", {}
     ).get("cron", "0 8 * * 1,3,5")
+    deadline_nudge_cron = schedules.get("deadline_nudge", {}).get("cron", "0 9 * * *")
 
     scheduler.add_job(
         respect_quiet_hours(gmail_digest_sync),
@@ -100,6 +102,12 @@ def main() -> None:
         respect_quiet_hours(project_staleness_sync),
         CronTrigger.from_crontab(project_staleness_cron),
         id="project_staleness_check",
+    )
+
+    scheduler.add_job(
+        respect_quiet_hours(deadline_nudge_sync),
+        CronTrigger.from_crontab(deadline_nudge_cron),
+        id="deadline_nudge",
     )
 
     backup_cron = schedules.get("backup_daily", {}).get("cron", "0 2 * * *")

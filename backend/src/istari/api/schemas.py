@@ -21,6 +21,7 @@ class TodoUpdate(BaseModel):
     source: str | None = None
     source_link: str | None = None
     due_date: datetime.datetime | None = None
+    recurrence_rule: str | None = None
     today_date: datetime.date | None = None
     tags: list[str] | None = None
     project_id: int | None = None
@@ -39,6 +40,7 @@ class TodoResponse(BaseModel):
     source: str | None = None
     source_link: str | None = None
     due_date: datetime.datetime | None = None
+    recurrence_rule: str | None = None
     today_date: datetime.date | None = None
     tags: list[str] | None = None
     project_id: int | None = None
