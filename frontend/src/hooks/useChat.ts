@@ -30,6 +30,28 @@ export function useChat({ onTodoCreated, onMemoryCreated, onAuthFailure }: UseCh
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
+      if (data.type === "history") {
+        // Hydrate on new tab / page refresh. Skip if we already have messages
+        // in state (same-session reconnect) to avoid replacing live context.
+        setMessages((prev) => {
+          if (prev.length > 0) return prev;
+          return (
+            data.messages as Array<{
+              id: string;
+              role: "user" | "assistant";
+              content: string;
+              created_at: string;
+            }>
+          ).map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            createdAt: m.created_at,
+          }));
+        });
+        return;
+      }
+
       if (data.type === "status") {
         setCurrentStatus(data.content ?? "");
         return;

@@ -30,6 +30,7 @@ dependencies = [
     "mcp>=1.0",
     "itsdangerous>=2.2",
     "ddgs>=9.0",
+    "python-dateutil>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +44,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "types-PyYAML>=6.0",
+    "types-python-dateutil>=2.9",
     "httpx>=0.28",
     "aiosqlite>=0.20",
 ]

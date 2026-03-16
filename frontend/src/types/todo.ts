@@ -9,6 +9,7 @@ export interface Todo {
   source?: string;
   source_link?: string;
   due_date?: string;
+  recurrence_rule?: string | null;
   today_date?: string | null;
   tags?: string[];
   project_id?: number | null;

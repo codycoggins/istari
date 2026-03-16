@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     quiet_hours_end: int = 8
     stale_todo_days: int = 3
     project_staleness_days: int = 7
+    deadline_urgent_days: int = 3  # todos due within N days auto-elevate to urgent in sort
+    deadline_nudge_days: int = 3   # worker job: notify for todos due within N days
 
     # TODO priorities
     priorities_max: int = 5  # max tasks returned by get_priorities tool + /todos/prioritized
