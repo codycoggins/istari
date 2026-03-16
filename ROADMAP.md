@@ -15,6 +15,7 @@
 | 8b | Projects UI — ProjectsPanel, TodoPanel filter bar, next-action badge, project pill on todo items, keyboard shortcuts |
 | 8c | Proactive project staleness — worker job, Mon/Wed/Fri nudge notifications, stale-project surfacing in get_priorities |
 | 8d | Deadlines + Recurrence — due_date UI badges, RRULE recurrence, auto-spawn next instance on complete, deadline urgency sort, daily nudge worker job |
+| 9a | Cross-client chat history — `load_history()` returns full metadata; WS sends `type=history` frame on connect; frontend hydrates on new tab/refresh, skips on same-session reconnect |
 
 ---
 
@@ -165,7 +166,7 @@ Design the `Todo` schema with these fields from Phase 8a migration so 8d is a no
 These are confirmed desirable but not yet sequenced:
 
 - **edit projects panel** Implement similar to edit tasks panel
-- **Persist recent message history cross-clients** to help with client changes or messages not delivered because client disconnected.
+- ~~**Persist recent message history cross-clients**~~ ✓ Done (Phase 9a)
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window

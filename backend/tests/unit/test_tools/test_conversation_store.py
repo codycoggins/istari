@@ -1,5 +1,6 @@
 """Tests for ConversationStore — persist and load chat history."""
 
+from datetime import datetime
 
 from istari.tools.conversation.store import _HISTORY_LIMIT, ConversationStore
 
@@ -17,8 +18,27 @@ class TestConversationStore:
         history = await store.load_history()
 
         assert len(history) == 2
-        assert history[0] == {"role": "user", "content": "Hello"}
-        assert history[1] == {"role": "assistant", "content": "Hi there!"}
+        assert history[0]["role"] == "user"
+        assert history[0]["content"] == "Hello"
+        assert history[1]["role"] == "assistant"
+        assert history[1]["content"] == "Hi there!"
+
+    async def test_history_includes_id_and_created_at(self, db_session):
+        store = ConversationStore(db_session)
+        await store.save_turn("Hello", "Hi!")
+        await db_session.flush()
+
+        history = await store.load_history()
+
+        assert len(history) == 2
+        for msg in history:
+            assert "id" in msg
+            assert isinstance(msg["id"], str)
+            assert "created_at" in msg
+            # created_at may be empty string when SQLite doesn't fire server_default;
+            # if non-empty it must parse as ISO-8601
+            if msg["created_at"]:
+                datetime.fromisoformat(msg["created_at"])
 
     async def test_history_is_chronological(self, db_session):
         store = ConversationStore(db_session)
