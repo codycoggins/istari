@@ -9,9 +9,9 @@ case "$1" in
     echo "Starting containers..."
     $COMPOSE up -d --build
 
-    echo "Preventing sleep and attaching logs..."
+    echo "Preventing idle sleep and attaching logs (display/disk may still sleep)..."
     shift
-    caffeinate -dimsu $COMPOSE logs -f "$@"
+    caffeinate -i $COMPOSE logs -f "$@"
     ;;
 
   down)

@@ -15,4 +15,4 @@ if [ ! -f .env ]; then
 fi
 
 echo "Starting Istari (prod mode)..."
-caffeinate -s docker compose -f docker-compose.yml up --build "$@"
+caffeinate -i docker compose -f docker-compose.yml up --build "$@"
