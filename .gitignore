@@ -71,3 +71,4 @@ logs/*.log
 logs/*.log.*
 .claude/worktrees/
 .claude/plans/
+.envrc
