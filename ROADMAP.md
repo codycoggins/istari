@@ -1,30 +1,24 @@
 # Istari — Roadmap
 
-## Completed Phases
+Feature lifecycle
 
-| Phase | Summary                                                                                                              |
-|-------|----------------------------------------------------------------------------------------------------------------------|
-| 1 | MVP — WebSocket chat, ReAct agent, TODO CRUD, memory store, LiteLLM routing                                          |
-| 2 | Notifications, Gmail integration, proactive worker agent                                                             |
-| 3 | Apple Calendar support (blocked by MDM; Google Calendar in use)                                                      |
-| 4 | Memory architecture — SOUL.md, USER.md, pgvector semantic search, conversation history                               |
-| 5 | Eisenhower matrix — urgent/important classification, quadrant badges                                                 |
-| 6 | MCP server integration — stdio subprocess model, GitHub server pre-configured                                        |
-| 7 | Security hardening — auth middleware, Docker networking, nginx headers, rate limiting, credential audit              |
-| 8a | Projects core — Project model, ProjectManager, agent tools, REST API, next-action designation                        |
-| 8b | Projects UI — ProjectsPanel, TodoPanel filter bar, next-action badge, project pill on todo items, keyboard shortcuts |
-| 8c | Proactive project staleness — worker job, Mon/Wed/Fri nudge notifications, stale-project surfacing in get_priorities |
-| 8d | Deadlines + Recurrence — due_date UI badges, RRULE recurrence, auto-spawn next instance on complete, deadline urgency sort, daily nudge worker job |
-| 9a | Cross-client chat history — `load_history()` returns full metadata; WS sends `type=history` frame on connect; frontend hydrates on new tab/refresh, skips on same-session reconnect |
+Stage 1. Tasks that need refinement
 
----
+In backlog grooming, we move to stage 2
 
-## Backlog (Phase 10+)
+Stage 2. Planned and sequenced work
 
-These are confirmed desirable but not yet sequenced:
+Stage 3. Implementation
+
+After implementation, we move **Completed Work** to the file `COMPLETED.md` at project root.
+
+
+## 1. Tasks that need refinement 
 
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
+- In task panel, next to "All" add "No Project" link which would filter task list to items without a project
 - **Revisit LLM selections** — config/llm_routing.yml
+- **Change health check log level to debug ** log message froom api is "GET /health HTTP/1.1" 200 OK
 - **Disable files tool** — Running from docker, files tools doesn't work.
 - **Ideas** — Plan ideas tracking, per project.  Could use tasks.  
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
@@ -42,3 +36,6 @@ These are confirmed desirable but not yet sequenced:
 - **Light and dark mode** - UI
 - Data Source Jira - atlassian acli command line https://developer.atlassian.com/cloud/acli/guides/install-macos/
 
+## 2. Planned and sequenced work
+
+(None)
