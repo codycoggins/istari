@@ -423,7 +423,9 @@ export function TodoPanel({
   const quietStart = settings?.quiet_hours_start ?? "21";
   const quietEnd = settings?.quiet_hours_end ?? "7";
   const todayStr = new Date().toISOString().slice(0, 10);
-  const filteredByProject = projectFilter != null
+  const filteredByProject = projectFilter === 0
+    ? todos.filter((t) => t.project_id == null)
+    : projectFilter != null
     ? todos.filter((t) => t.project_id === projectFilter)
     : todos;
   const visibleTodos = filteredByProject.filter((t) => !isCompletedBeforeToday(t));
@@ -573,6 +575,23 @@ export function TodoPanel({
                   }}
                 >
                   All
+                </button>
+                <button
+                  onClick={() => onSelectProject?.(projectFilter === 0 ? null : 0)}
+                  style={{
+                    background: projectFilter === 0 ? "var(--accent-dim)" : "none",
+                    border: `1px solid ${projectFilter === 0 ? "var(--border-accent)" : "var(--border-subtle)"}`,
+                    borderRadius: "4px",
+                    padding: "0.15rem 0.5rem",
+                    cursor: "pointer",
+                    fontSize: "0.625rem",
+                    fontWeight: 600,
+                    color: projectFilter === 0 ? "var(--accent)" : "var(--text-muted)",
+                    fontFamily: "inherit",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  No Project
                 </button>
                 {projects.map((p) => (
                   <button
