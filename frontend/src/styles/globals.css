@@ -156,5 +156,5 @@
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
   .app-body     { flex-direction: column; }
-  .todo-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-subtle); max-height: 40vh; }
+  .todo-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border-subtle); max-height: 55vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 }

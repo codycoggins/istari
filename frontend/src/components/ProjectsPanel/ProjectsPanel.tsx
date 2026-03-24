@@ -508,8 +508,6 @@ export function ProjectsPanel({
   );
   const [editProject, setEditProject] = useState<Project | null>(null);
 
-  if (!isLoading && projects.length === 0) return null;
-
   function toggleCollapsed() {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -603,6 +601,8 @@ export function ProjectsPanel({
       {!isCollapsed && (
         isLoading ? (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>Loading...</p>
+        ) : projects.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>No projects yet.</p>
         ) : (
           <>
             {projects.map((project) => (
