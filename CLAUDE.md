@@ -12,7 +12,8 @@ See `AVAILABLE_CLI_TOOLS.md` for CLI tools available on this machine (eza, bat, 
 Claude is authorized to run these Docker commands directly without copy-paste:
 - `docker compose logs --tail=50 api` / `docker compose logs --tail=50 worker` — tail recent logs
 - `docker compose logs --since=5m api` — logs from the last N minutes
-- `docker compose exec api python -c "..."` — run a one-liner inside the api container
+- `docker compose exec api python -c "..."` — run a one-liner inside the api container (runs as `istari` user)
+- `docker compose exec --user root api bash` — shell as root for debugging (pip install, file ownership issues, etc.)
 - `docker compose ps` — check container health/status
 - `docker compose restart api` / `docker compose restart worker` — restart a service
 

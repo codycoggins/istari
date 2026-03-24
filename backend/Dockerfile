@@ -19,5 +19,10 @@ COPY migrations/ migrations/
 # Re-install with source (picks up the package)
 RUN pip install --no-cache-dir .
 
+# Run as non-root user
+RUN groupadd -r istari && useradd -r -g istari -d /app istari \
+    && chown -R istari:istari /app
+USER istari
+
 # Default: run API (overridden per service in docker-compose.yml)
 CMD ["uvicorn", "istari.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
