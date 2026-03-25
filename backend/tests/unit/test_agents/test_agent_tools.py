@@ -5,6 +5,14 @@ import json
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from istari.agents.tools.base import AgentContext, normalize_status
+from istari.agents.tools.calendar import make_calendar_tools
+from istari.agents.tools.gmail import make_gmail_tools
+from istari.agents.tools.memory import make_memory_tools
+from istari.agents.tools.todo import make_todo_tools
+from istari.models.todo import TodoStatus
+from istari.tools.todo.manager import TodoManager
+
 
 @contextmanager
 def _patch_llm():
@@ -13,14 +21,6 @@ def _patch_llm():
     client.chat.completions.create = create
     with patch("istari.llm.router.AsyncOpenAI", return_value=client):
         yield create
-
-from istari.agents.tools.base import AgentContext, normalize_status
-from istari.agents.tools.calendar import make_calendar_tools
-from istari.agents.tools.gmail import make_gmail_tools
-from istari.agents.tools.memory import make_memory_tools
-from istari.agents.tools.todo import make_todo_tools
-from istari.models.todo import TodoStatus
-from istari.tools.todo.manager import TodoManager
 
 # ---------------------------------------------------------------------------
 # normalize_status
