@@ -59,7 +59,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-istari}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_API_BASE: http://host.docker.internal:11434
-      # Override host path from .env — inside the container backups go to /app/backups (mounted below)
+      # Inside the container backups go to /app/backups (volume-mounted from host path below)
       BACKUP_DESTINATION_PATH: /app/backups
       # Empty = call pg_dump directly via DATABASE_URL (docker exec not available inside a container)
       BACKUP_PG_CONTAINER: ""
@@ -67,7 +67,8 @@ services:
       - ./secrets:/app/secrets:ro
       - ./logs:/app/logs
       - ./memory:/app/memory:ro
-      - ./backups:/app/backups
+      # Use BACKUP_DESTINATION_PATH from .env as the host-side backup dir; fall back to ./backups
+      - ${BACKUP_DESTINATION_PATH:-./backups}:/app/backups
     cap_drop:
       - ALL
     security_opt:

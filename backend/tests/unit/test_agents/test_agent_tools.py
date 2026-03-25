@@ -2,6 +2,7 @@
 
 import datetime
 import json
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from istari.agents.tools.base import AgentContext, normalize_status
@@ -11,6 +12,15 @@ from istari.agents.tools.memory import make_memory_tools
 from istari.agents.tools.todo import make_todo_tools
 from istari.models.todo import TodoStatus
 from istari.tools.todo.manager import TodoManager
+
+
+@contextmanager
+def _patch_llm():
+    client = MagicMock()
+    create = AsyncMock()
+    client.chat.completions.create = create
+    with patch("istari.llm.router.AsyncOpenAI", return_value=client):
+        yield create
 
 # ---------------------------------------------------------------------------
 # normalize_status
@@ -532,7 +542,7 @@ class TestRunAgent:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _make_text_response("Hello, how can I help?")
             result = await run_agent("Hi there", [], tools, system_prompt="You are Istari.")
 
@@ -549,7 +559,7 @@ class TestRunAgent:
         )
         final_resp = _make_text_response("Done! I've added 2 TODOs for you.")
 
-        with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.side_effect = [tool_resp, final_resp]
             await run_agent(
                 "Add todos: buy milk and walk the dog", [], tools,
@@ -569,7 +579,7 @@ class TestRunAgent:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.side_effect = Exception("API unavailable")
             result = await run_agent(
                 "What should I do?", [], tools, system_prompt="You are Istari.",
@@ -583,7 +593,7 @@ class TestRunAgent:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch("istari.llm.router.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _make_text_response("Got it!")
             await run_agent("Hi", [], tools, system_prompt="The user's name is Cody.")
 

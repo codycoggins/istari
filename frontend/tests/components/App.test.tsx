@@ -45,7 +45,9 @@ describe("App", () => {
   it("'Prioritize' button sends the priority question to chat", async () => {
     render(<App />);
     fireEvent.click(await screen.findByText("Prioritize"));
-    expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith("What should I work on?");
+    });
   });
 
   it("'Prioritize' sends exactly the expected string", async () => {
