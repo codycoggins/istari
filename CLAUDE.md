@@ -6,6 +6,7 @@ See `AVAILABLE_CLI_TOOLS.md` for CLI tools available on this machine (eza, bat, 
 ## Current Status
 - **DB migrations:** up to date — most recent: `d4f6a8b2c1e3` (add recurrence_rule to todos); **Gmail setup:** `python scripts/setup_gmail.py` (place `credentials.json` in `secrets/`); **Calendar setup:** `python scripts/setup_calendar.py` (reuses same credentials); **slash commands:** `/test` runs full CI suite
 - **LLM dependency:** `litellm` replaced with `openai>=1.0` + `anthropic>=0.25` (litellm supply chain incident); all provider routing in `llm/router.py` via `AsyncOpenAI` with per-provider `base_url`
+- **Docker hardening:** api+worker run as non-root `istari` user; `cap_drop: ALL`; `no-new-privileges:true`; `secrets/` and `memory/` mounted read-only; backup volume uses `${BACKUP_DESTINATION_PATH:-./backups}`
 - **Completed Work** See `COMPLETED.md` at project root.
 - **Next up:** See `ROADMAP.md` at project root for the active roadmap and backlog.
 
@@ -13,7 +14,8 @@ See `AVAILABLE_CLI_TOOLS.md` for CLI tools available on this machine (eza, bat, 
 Claude is authorized to run these Docker commands directly without copy-paste:
 - `docker compose logs --tail=50 api` / `docker compose logs --tail=50 worker` — tail recent logs
 - `docker compose logs --since=5m api` — logs from the last N minutes
-- `docker compose exec api python -c "..."` — run a one-liner inside the api container
+- `docker compose exec api python -c "..."` — run a one-liner inside the api container (runs as `istari` user)
+- `docker compose exec --user root api bash` — shell as root for debugging (pip install, file ownership issues, etc.)
 - `docker compose ps` — check container health/status
 - `docker compose restart api` / `docker compose restart worker` — restart a service
 

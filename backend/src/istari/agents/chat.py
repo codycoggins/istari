@@ -22,10 +22,12 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 
 from istari.agents.tools.base import AgentContext, AgentTool
 
@@ -263,6 +265,8 @@ async def run_agent(
             return content
 
         # Add assistant message with tool calls to context
+        # cast: in practice tool_choice="auto" only returns function tool calls
+        tool_calls = cast(list[ChatCompletionMessageToolCall], msg.tool_calls or [])
         messages.append({
             "role": "assistant",
             "content": msg.content,
@@ -275,13 +279,13 @@ async def run_agent(
                         "arguments": tc.function.arguments,
                     },
                 }
-                for tc in msg.tool_calls
+                for tc in tool_calls
             ],
         })
 
         # Execute each tool call and append results
         context_has_tool_calls = True
-        for tc in msg.tool_calls:
+        for tc in tool_calls:
             tool_name = tc.function.name
             tool = tool_map.get(tool_name)
             try:

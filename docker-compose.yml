@@ -29,11 +29,15 @@ services:
       OLLAMA_API_BASE: http://host.docker.internal:11434
     volumes:
       # OAuth tokens and credentials — written by setup scripts on the host, read-only in containers
-      - ./secrets:/app/secrets
+      - ./secrets:/app/secrets:ro
       # Persistent logs — readable on host via Read tool without docker exec
       - ./logs:/app/logs
       # Agent personality (SOUL.md) and user profile (USER.md) — editable on host
-      - ./memory:/app/memory
+      - ./memory:/app/memory:ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,10 +59,20 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-istari}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-istari}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_API_BASE: http://host.docker.internal:11434
+      # Inside the container backups go to /app/backups (volume-mounted from host path below)
+      BACKUP_DESTINATION_PATH: /app/backups
+      # Empty = call pg_dump directly via DATABASE_URL (docker exec not available inside a container)
+      BACKUP_PG_CONTAINER: ""
     volumes:
-      - ./secrets:/app/secrets
+      - ./secrets:/app/secrets:ro
       - ./logs:/app/logs
-      - ./memory:/app/memory
+      - ./memory:/app/memory:ro
+      # Use BACKUP_DESTINATION_PATH from .env as the host-side backup dir; fall back to ./backups
+      - ${BACKUP_DESTINATION_PATH:-./backups}:/app/backups
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_healthy

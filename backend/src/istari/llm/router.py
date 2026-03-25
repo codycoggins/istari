@@ -1,6 +1,6 @@
 """LLM routing — multi-provider wrapper with model selection per task type."""
 
-from typing import Any
+from typing import Any, cast
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
@@ -69,7 +69,7 @@ async def completion(
         call_kwargs["extra_body"] = {"num_ctx": 8192}
 
     call_kwargs.update(kwargs)
-    return await client.chat.completions.create(**call_kwargs)
+    return cast(ChatCompletion, await client.chat.completions.create(**call_kwargs))
 
 
 async def embedding(text: str) -> list[float]:
@@ -79,4 +79,4 @@ async def embedding(text: str) -> list[float]:
 
     client, bare_model = _make_client(model)
     response = await client.embeddings.create(model=bare_model, input=[text])
-    return response.data[0].embedding  # type: ignore[no-any-return]
+    return response.data[0].embedding
