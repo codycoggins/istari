@@ -1,6 +1,7 @@
 """Tests for the ReAct chat agent loop (run_agent) — edge cases and wiring."""
 
 import json
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from istari.agents.chat import _format_tool_status, build_tools, run_agent
@@ -35,7 +36,18 @@ def _text_response(content: str):
     return resp
 
 
-_LLM = "istari.llm.router.litellm.acompletion"
+@contextmanager
+def _patch_llm():
+    """Patch AsyncOpenAI and yield the chat.completions.create AsyncMock.
+
+    Tests set .return_value / .side_effect on the yielded mock and inspect
+    .call_args.kwargs["messages"] exactly as before.
+    """
+    client = MagicMock()
+    create = AsyncMock()
+    client.chat.completions.create = create
+    with patch("istari.llm.router.AsyncOpenAI", return_value=client):
+        yield create
 
 
 # ── Max turns limit ───────────────────────────────────────────────────────────
@@ -52,7 +64,7 @@ class TestMaxTurns:
         # Always return a tool call — never a final text response
         tool_resp = _tool_response("list_todos", {})
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = tool_resp
             result = await run_agent("loop forever", [], tools, system_prompt="You are Istari.")
 
@@ -72,7 +84,7 @@ class TestUnknownTool:
         bad_tool = _tool_response("nonexistent_tool_xyz", {"arg": "val"})
         final = _text_response("Sorry, I couldn't do that.")
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.side_effect = [bad_tool, final]
             result = await run_agent("do something", [], tools, system_prompt="You are Istari.")
 
@@ -102,7 +114,7 @@ class TestToolException:
         call_resp = _tool_response("boom", {})
         final = _text_response("I hit an error but recovered.")
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.side_effect = [call_resp, final]
             result = await run_agent("trigger boom", [], tools, system_prompt="You are Istari.")
 
@@ -122,7 +134,7 @@ class TestHistory:
             {"role": "assistant", "content": "Earlier answer"},
         ]
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _text_response("Got it!")
             await run_agent("Follow-up question", history, tools, system_prompt="You are Istari.")
 
@@ -136,7 +148,7 @@ class TestHistory:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _text_response("Hi!")
             await run_agent("Hello", [], tools, system_prompt="CUSTOM SOUL")
 
@@ -148,7 +160,7 @@ class TestHistory:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _text_response("Hi!")
             await run_agent("My question", [], tools, system_prompt="You are Istari.")
 
@@ -301,7 +313,7 @@ class TestStatusCallback:
         tools = build_tools(db_session, ctx)
         callback = AsyncMock()
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _text_response("Done!")
             await run_agent(
                 "hello", [], tools,
@@ -337,7 +349,7 @@ class TestStatusCallback:
         async def capturing_callback(text: str) -> None:
             callback_calls.append(text)
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.side_effect = [call_resp, final]
             await run_agent(
                 "what are my priorities?", [], [tool],
@@ -359,7 +371,7 @@ class TestStatusCallback:
         ctx = AgentContext()
         tools = build_tools(db_session, ctx)
 
-        with patch(_LLM, new_callable=AsyncMock) as mock_llm:
+        with _patch_llm() as mock_llm:
             mock_llm.return_value = _text_response("All good.")
             result = await run_agent(
                 "test", [], tools,
