@@ -41,9 +41,18 @@ let mockWs: MockWebSocket;
 
 beforeEach(() => {
   mockWs = new MockWebSocket();
-  const WsMock = vi.fn(() => mockWs) as unknown as typeof WebSocket;
-  (WsMock as unknown as { OPEN: number }).OPEN = 1;
-  vi.stubGlobal("WebSocket", WsMock);
+  // Use a class (not vi.fn) so `new WebSocket(...)` works in Vitest 4.x.
+  // Returning an existing object from a constructor is valid JS — the returned
+  // object becomes the result of `new`, so all tests get the same `mockWs`.
+  vi.stubGlobal(
+    "WebSocket",
+    class {
+      static OPEN = 1;
+      constructor() {
+        return mockWs;
+      }
+    },
+  );
 });
 
 afterEach(() => {
