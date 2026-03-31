@@ -18,7 +18,6 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - In task panel, next to "All" add "No Project" link which would filter task list to items without a project
 - **Revisit LLM selections** — config/llm_routing.yml
-- **Change health check log level to debug ** log message froom api is "GET /health HTTP/1.1" 200 OK
 - **Disable files tool** — Running from docker, files tools doesn't work.
 - **Ideas** — Plan ideas tracking, per project.  Could use tasks.  
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window

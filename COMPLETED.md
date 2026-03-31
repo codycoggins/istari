@@ -16,6 +16,7 @@
 | 8c | Proactive project staleness — worker job, Mon/Wed/Fri nudge notifications, stale-project surfacing in get_priorities |
 | 8d | Deadlines + Recurrence — due_date UI badges, RRULE recurrence, auto-spawn next instance on complete, deadline urgency sort, daily nudge worker job |
 | 9a | Cross-client chat history — `load_history()` returns full metadata; WS sends `type=history` frame on connect; frontend hydrates on new tab/refresh, skips on same-session reconnect |
+| eng | Health check log suppression — `_HealthCheckFilter` on `uvicorn.access` logger drops `/health` access-log entries so Docker's 10 s health-poll no longer floods logs |
 
 
 ## Detailed List of completed work
