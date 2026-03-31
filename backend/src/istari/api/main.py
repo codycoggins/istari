@@ -20,6 +20,18 @@ _LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s | %(message)s"
 _LOG_DATEFMT = "%H:%M:%S"
 
 
+def _filter_health_check(record: logging.LogRecord) -> bool:
+    """Drop uvicorn access-log entries for /health — Docker polls every 10 s."""
+    # Uvicorn access logs pass (addr, method, path, version, status) as args[2].
+    # Checking args directly avoids %-formatting the full message on every request.
+    args = record.args
+    return not (isinstance(args, tuple) and len(args) >= 3 and "/health" in str(args[2]))
+
+
+# Register once at import time — lifespan can run multiple times (e.g. in tests).
+logging.getLogger("uvicorn.access").addFilter(_filter_health_check)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logging.basicConfig(
