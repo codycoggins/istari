@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Project } from "../../types/project";
 import type { Todo } from "../../types/todo";
 import type { ProjectUpdatePayload } from "../../api/projects";
@@ -31,7 +32,12 @@ function ProjectDetailPanel({
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [onClose]);
 
   const set =
@@ -230,7 +236,7 @@ function ProjectDetailPanel({
   );
 
   if (isNarrow) {
-    return (
+    return createPortal(
       <div className="bottom-sheet-overlay" onClick={onClose}>
         <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
           <div className="bottom-sheet-handle" />
@@ -238,18 +244,19 @@ function ProjectDetailPanel({
           <div className="bottom-sheet-body">{formBody}</div>
           {footer}
         </div>
-      </div>
+      </div>,
+      document.body,
     );
   }
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.6)",
-        zIndex: 100,
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -275,7 +282,8 @@ function ProjectDetailPanel({
         {formBody}
         {footer}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

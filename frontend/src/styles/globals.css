@@ -225,12 +225,15 @@
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.65);
-  /* Must exceed the tab bar (z-index: 50) by a large margin to avoid Safari
-     stacking context quirks with nested fixed elements on iOS. */
+  /* Portaled to document.body so it is never clipped by an overflow container.
+     z-index still set high for any other stacking contexts. */
   z-index: 9999;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  /* Prevent touch scroll from passing through to background on iOS */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .bottom-sheet {
@@ -259,6 +262,9 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1;
+  /* Re-enable touch scroll inside the sheet (overridden from overlay) */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
 

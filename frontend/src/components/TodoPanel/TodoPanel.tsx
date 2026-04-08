@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 const TASKS_COLLAPSED_KEY = "istari-tasks-collapsed";
 const SETTINGS_COLLAPSED_KEY = "istari-settings-collapsed";
@@ -93,13 +94,18 @@ function TodoDetailPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on Escape
+  // Close on Escape + lock body scroll while open
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [onClose]);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -367,9 +373,9 @@ function TodoDetailPanel({
     </div>
   );
 
-  // ── Mobile bottom sheet ───────────────────────────────────
+  // ── Mobile bottom sheet (portaled to body) ───────────────
   if (isNarrow) {
-    return (
+    return createPortal(
       <div className="bottom-sheet-overlay" onClick={onClose}>
         <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
           <div className="bottom-sheet-handle" />
@@ -377,19 +383,20 @@ function TodoDetailPanel({
           <div className="bottom-sheet-body">{formFields}</div>
           {formFooter}
         </div>
-      </div>
+      </div>,
+      document.body,
     );
   }
 
-  // ── Desktop centered overlay ──────────────────────────────
-  return (
+  // ── Desktop centered overlay (portaled to body) ───────────
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.6)",
-        zIndex: 100,
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -415,7 +422,8 @@ function TodoDetailPanel({
         {formFields}
         {formFooter}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
