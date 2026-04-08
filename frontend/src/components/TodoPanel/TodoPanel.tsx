@@ -65,10 +65,12 @@ function TodoDetailPanel({
   todo,
   onClose,
   onSave,
+  isNarrow,
 }: {
   todo: Todo;
   onClose: () => void;
   onSave: (id: number, updates: TodoUpdatePayload) => Promise<void>;
+  isNarrow?: boolean;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState({
@@ -129,8 +131,229 @@ function TodoDetailPanel({
     }
   };
 
+  // ── Form body (shared between desktop and mobile layouts) ──
+  const formBody = (
+    <div
+      style={{
+        padding: "1.125rem 1.25rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+      }}
+    >
+      <Field label="Title">
+        <input
+          type="text"
+          value={form.title}
+          onChange={set("title")}
+          style={inputStyle}
+          autoFocus
+        />
+      </Field>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
+        <Field label="Status">
+          <select value={form.status} onChange={set("status")} style={inputStyle}>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="complete">Complete</option>
+            <option value="deferred">Deferred</option>
+          </select>
+        </Field>
+        <Field label="Urgent">
+          <select value={form.urgent} onChange={set("urgent")} style={inputStyle}>
+            <option value="">—</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </Field>
+        <Field label="Important">
+          <select value={form.important} onChange={set("important")} style={inputStyle}>
+            <option value="">—</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </Field>
+      </div>
+
+      <Field label="Description">
+        <textarea
+          value={form.body}
+          onChange={set("body")}
+          rows={3}
+          placeholder="Add a description…"
+          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+        />
+      </Field>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <Field label="Source">
+          <input
+            type="text"
+            value={form.source}
+            onChange={set("source")}
+            placeholder="e.g. Slack, Email"
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Source Link">
+          <input
+            type="url"
+            value={form.source_link}
+            onChange={set("source_link")}
+            placeholder="https://…"
+            style={inputStyle}
+          />
+        </Field>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <Field label="Due Date">
+          <input
+            type="date"
+            value={form.due_date}
+            onChange={set("due_date")}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Priority #">
+          <input
+            type="number"
+            min={1}
+            value={form.priority}
+            onChange={set("priority")}
+            placeholder="—"
+            style={inputStyle}
+          />
+        </Field>
+      </div>
+
+      <Field label="Tags (comma-separated)">
+        <input
+          type="text"
+          value={form.tags}
+          onChange={set("tags")}
+          placeholder="work, urgent, waiting"
+          style={inputStyle}
+        />
+      </Field>
+
+      <Field label="Project">
+        <select value={form.project_id} onChange={set("project_id")} style={inputStyle}>
+          <option value="">— None —</option>
+          {projects.map((p) => (
+            <option key={p.id} value={String(p.id)}>{p.name}</option>
+          ))}
+        </select>
+      </Field>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "0.75rem",
+          paddingTop: "0.625rem",
+          borderTop: "1px solid var(--border-subtle)",
+        }}
+      >
+        <Field label="Created">
+          <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+            {formatDate(todo.created_at)}
+          </span>
+        </Field>
+        <Field label="Updated">
+          <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+            {formatDate(todo.updated_at)}
+          </span>
+        </Field>
+      </div>
+
+      {error && (
+        <p style={{ fontSize: "0.8125rem", color: "var(--q1)", margin: 0 }}>{error}</p>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={handleSave}
+          disabled={isSaving || !form.title.trim()}
+          style={{
+            padding: "0.5rem 1.25rem",
+            borderRadius: "6px",
+            border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
+            background: isSaving ? "transparent" : "var(--accent-dim)",
+            color: isSaving ? "var(--text-muted)" : "var(--accent)",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            fontFamily: "inherit",
+            cursor: isSaving ? "not-allowed" : "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          {isSaving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Shared header ─────────────────────────────────────────
+  const header = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.625rem",
+        padding: "1rem 1.25rem",
+        borderBottom: "1px solid var(--border-subtle)",
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ color: "var(--accent)", fontSize: "0.875rem" }}>✦</span>
+      <span
+        style={{
+          flex: 1,
+          fontSize: "0.75rem",
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+        }}
+      >
+        Edit Task
+      </span>
+      <button
+        onClick={onClose}
+        aria-label="Close"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--text-muted)",
+          fontSize: "1rem",
+          lineHeight: 1,
+          padding: "0.1rem 0.25rem",
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+
+  // ── Mobile bottom sheet ───────────────────────────────────
+  if (isNarrow) {
+    return (
+      <div className="bottom-sheet-overlay" onClick={onClose}>
+        <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="bottom-sheet-handle" />
+          {header}
+          <div className="bottom-sheet-body">{formBody}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Desktop centered overlay ──────────────────────────────
   return (
-    /* Backdrop */
     <div
       onClick={onClose}
       style={{
@@ -144,7 +367,6 @@ function TodoDetailPanel({
         padding: "1.5rem",
       }}
     >
-      {/* Panel */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -160,221 +382,8 @@ function TodoDetailPanel({
           flexDirection: "column",
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.625rem",
-            padding: "1rem 1.25rem",
-            borderBottom: "1px solid var(--border-subtle)",
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: "var(--accent)", fontSize: "0.875rem" }}>✦</span>
-          <span
-            style={{
-              flex: 1,
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-            }}
-          >
-            Edit Task
-          </span>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: "1rem",
-              lineHeight: 1,
-              padding: "0.1rem 0.25rem",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Form body */}
-        <div
-          style={{
-            padding: "1.125rem 1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          {/* Title */}
-          <Field label="Title">
-            <input
-              type="text"
-              value={form.title}
-              onChange={set("title")}
-              style={inputStyle}
-              autoFocus
-            />
-          </Field>
-
-          {/* Status + Urgency/Importance row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
-            <Field label="Status">
-              <select value={form.status} onChange={set("status")} style={inputStyle}>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="blocked">Blocked</option>
-                <option value="complete">Complete</option>
-                <option value="deferred">Deferred</option>
-              </select>
-            </Field>
-            <Field label="Urgent">
-              <select value={form.urgent} onChange={set("urgent")} style={inputStyle}>
-                <option value="">—</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-            </Field>
-            <Field label="Important">
-              <select value={form.important} onChange={set("important")} style={inputStyle}>
-                <option value="">—</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-            </Field>
-          </div>
-
-          {/* Description */}
-          <Field label="Description">
-            <textarea
-              value={form.body}
-              onChange={set("body")}
-              rows={3}
-              placeholder="Add a description…"
-              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
-            />
-          </Field>
-
-          {/* Source + Source Link row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <Field label="Source">
-              <input
-                type="text"
-                value={form.source}
-                onChange={set("source")}
-                placeholder="e.g. Slack, Email"
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Source Link">
-              <input
-                type="url"
-                value={form.source_link}
-                onChange={set("source_link")}
-                placeholder="https://…"
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-
-          {/* Due Date + Priority # row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <Field label="Due Date">
-              <input
-                type="date"
-                value={form.due_date}
-                onChange={set("due_date")}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Priority #">
-              <input
-                type="number"
-                min={1}
-                value={form.priority}
-                onChange={set("priority")}
-                placeholder="—"
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-
-          {/* Tags */}
-          <Field label="Tags (comma-separated)">
-            <input
-              type="text"
-              value={form.tags}
-              onChange={set("tags")}
-              placeholder="work, urgent, waiting"
-              style={inputStyle}
-            />
-          </Field>
-
-          {/* Project */}
-          <Field label="Project">
-            <select value={form.project_id} onChange={set("project_id")} style={inputStyle}>
-              <option value="">— None —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          {/* Timestamps (read-only) */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.75rem",
-              paddingTop: "0.625rem",
-              borderTop: "1px solid var(--border-subtle)",
-            }}
-          >
-            <Field label="Created">
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                {formatDate(todo.created_at)}
-              </span>
-            </Field>
-            <Field label="Updated">
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                {formatDate(todo.updated_at)}
-              </span>
-            </Field>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <p style={{ fontSize: "0.8125rem", color: "var(--q1)", margin: 0 }}>{error}</p>
-          )}
-
-          {/* Save button */}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !form.title.trim()}
-              style={{
-                padding: "0.5rem 1.25rem",
-                borderRadius: "6px",
-                border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
-                background: isSaving ? "transparent" : "var(--accent-dim)",
-                color: isSaving ? "var(--text-muted)" : "var(--accent)",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                fontFamily: "inherit",
-                cursor: isSaving ? "not-allowed" : "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {isSaving ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </div>
+        {header}
+        {formBody}
       </div>
     </div>
   );
@@ -384,6 +393,8 @@ function TodoDetailPanel({
 interface TodoPanelProps {
   todos: Todo[];
   isLoading: boolean;
+  error?: string | null;
+  isNarrow?: boolean;
   onComplete: (id: number) => void;
   onReopen: (id: number) => void;
   onSave: (id: number, updates: TodoUpdatePayload) => Promise<void>;
@@ -400,6 +411,8 @@ interface TodoPanelProps {
 export function TodoPanel({
   todos,
   isLoading,
+  error,
+  isNarrow,
   onComplete,
   onReopen,
   onSave,
@@ -683,12 +696,32 @@ export function TodoPanel({
             )}
 
             {/* Todo list */}
-            {isLoading && (
+            {error && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0" }}>
+                <span style={{ fontSize: "0.8125rem", color: "var(--q1)" }}>{error}</span>
+                <button
+                  onClick={onRefresh}
+                  style={{
+                    background: "none",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: "4px",
+                    padding: "0.2rem 0.5rem",
+                    fontSize: "0.75rem",
+                    color: "var(--text-secondary)",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {isLoading && !error && (
               <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
                 Loading...
               </p>
             )}
-            {!isLoading && visibleTodos.length === 0 && (
+            {!isLoading && !error && visibleTodos.length === 0 && (
               <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "0.5rem 0" }}>
                 {selectedProject ? `No tasks in "${selectedProject.name}"` : "No tasks yet"}
               </p>
@@ -808,6 +841,7 @@ export function TodoPanel({
           todo={editTodo}
           onClose={() => setEditTodo(null)}
           onSave={onSave}
+          isNarrow={isNarrow}
         />
       )}
     </>

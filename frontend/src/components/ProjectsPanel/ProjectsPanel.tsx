@@ -10,10 +10,12 @@ function ProjectDetailPanel({
   project,
   onClose,
   onSave,
+  isNarrow,
 }: {
   project: Project;
   onClose: () => void;
   onSave: (id: number, updates: ProjectUpdatePayload) => Promise<void>;
+  isNarrow?: boolean;
 }) {
   const [form, setForm] = useState({
     name: project.name,
@@ -86,6 +88,160 @@ function ProjectDetailPanel({
     minHeight: "5rem",
   };
 
+  const header = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.625rem",
+        padding: "1rem 1.25rem",
+        borderBottom: "1px solid var(--border-subtle)",
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ color: "var(--accent)", fontSize: "0.875rem" }}>✦</span>
+      <span
+        style={{
+          flex: 1,
+          fontSize: "0.75rem",
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+        }}
+      >
+        Edit Project
+      </span>
+      <button
+        onClick={onClose}
+        aria-label="Close"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--text-muted)",
+          fontSize: "1rem",
+          lineHeight: 1,
+          padding: "0.1rem 0.25rem",
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+
+  const formBody = (
+    <div
+      style={{
+        padding: "1.125rem 1.25rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+      }}
+    >
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Name</label>
+        <input
+          type="text"
+          value={form.name}
+          onChange={set("name")}
+          style={inputStyle}
+          autoFocus
+        />
+      </div>
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Goal</label>
+        <textarea
+          value={form.goal}
+          onChange={set("goal")}
+          style={textareaStyle}
+          placeholder="What does success look like?"
+        />
+      </div>
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Description</label>
+        <textarea
+          value={form.description}
+          onChange={set("description")}
+          style={textareaStyle}
+          placeholder="Additional context or notes…"
+        />
+      </div>
+      <div style={fieldStyle}>
+        <label style={labelStyle}>Status</label>
+        <select value={form.status} onChange={set("status")} style={inputStyle}>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+      {error && (
+        <p style={{ color: "var(--q1)", fontSize: "0.8125rem", margin: 0 }}>{error}</p>
+      )}
+    </div>
+  );
+
+  const footer = (
+    <div
+      className="bottom-sheet-footer"
+      style={{
+        padding: "0.875rem 1.25rem",
+        borderTop: "1px solid var(--border-subtle)",
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: "0.625rem",
+        flexShrink: 0,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          padding: "0.5rem 1rem",
+          borderRadius: "6px",
+          border: "1px solid var(--border-default)",
+          background: "transparent",
+          color: "var(--text-secondary)",
+          fontSize: "0.875rem",
+          fontFamily: "inherit",
+          cursor: "pointer",
+        }}
+      >
+        Cancel
+      </button>
+      <button
+        onClick={handleSave}
+        disabled={isSaving || !form.name.trim()}
+        style={{
+          padding: "0.5rem 1.25rem",
+          borderRadius: "6px",
+          border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
+          background: isSaving ? "transparent" : "var(--accent-dim)",
+          color: isSaving ? "var(--text-muted)" : "var(--accent)",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          fontFamily: "inherit",
+          cursor: isSaving ? "not-allowed" : "pointer",
+          transition: "all 0.15s",
+        }}
+      >
+        {isSaving ? "Saving…" : "Save"}
+      </button>
+    </div>
+  );
+
+  if (isNarrow) {
+    return (
+      <div className="bottom-sheet-overlay" onClick={onClose}>
+        <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="bottom-sheet-handle" />
+          {header}
+          <div className="bottom-sheet-body">{formBody}</div>
+          {footer}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onClose}
@@ -115,150 +271,9 @@ function ProjectDetailPanel({
           flexDirection: "column",
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.625rem",
-            padding: "1rem 1.25rem",
-            borderBottom: "1px solid var(--border-subtle)",
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: "var(--accent)", fontSize: "0.875rem" }}>✦</span>
-          <span
-            style={{
-              flex: 1,
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-            }}
-          >
-            Edit Project
-          </span>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: "1rem",
-              lineHeight: 1,
-              padding: "0.1rem 0.25rem",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Form body */}
-        <div
-          style={{
-            padding: "1.125rem 1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          {/* Name */}
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={set("name")}
-              style={inputStyle}
-              autoFocus
-            />
-          </div>
-
-          {/* Goal */}
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Goal</label>
-            <textarea
-              value={form.goal}
-              onChange={set("goal")}
-              style={textareaStyle}
-              placeholder="What does success look like?"
-            />
-          </div>
-
-          {/* Description */}
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Description</label>
-            <textarea
-              value={form.description}
-              onChange={set("description")}
-              style={textareaStyle}
-              placeholder="Additional context or notes…"
-            />
-          </div>
-
-          {/* Status */}
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Status</label>
-            <select value={form.status} onChange={set("status")} style={inputStyle}>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="complete">Complete</option>
-            </select>
-          </div>
-
-          {error && (
-            <p style={{ color: "var(--q1)", fontSize: "0.8125rem", margin: 0 }}>{error}</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            padding: "0.875rem 1.25rem",
-            borderTop: "1px solid var(--border-subtle)",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "0.625rem",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "6px",
-              border: "1px solid var(--border-default)",
-              background: "transparent",
-              color: "var(--text-secondary)",
-              fontSize: "0.875rem",
-              fontFamily: "inherit",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || !form.name.trim()}
-            style={{
-              padding: "0.5rem 1.25rem",
-              borderRadius: "6px",
-              border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
-              background: isSaving ? "transparent" : "var(--accent-dim)",
-              color: isSaving ? "var(--text-muted)" : "var(--accent)",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              fontFamily: "inherit",
-              cursor: isSaving ? "not-allowed" : "pointer",
-              transition: "all 0.15s",
-            }}
-          >
-            {isSaving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        {header}
+        {formBody}
+        {footer}
       </div>
     </div>
   );
@@ -276,6 +291,8 @@ interface ProjectsPanelProps {
   projects: Project[];
   todos: Todo[];
   isLoading: boolean;
+  error?: string | null;
+  isNarrow?: boolean;
   selectedProjectId: number | null;
   onSelectProject: (id: number | null) => void;
   onRefresh?: () => void;
@@ -498,6 +515,8 @@ export function ProjectsPanel({
   projects,
   todos,
   isLoading,
+  error,
+  isNarrow,
   selectedProjectId,
   onSelectProject,
   onRefresh,
@@ -599,7 +618,26 @@ export function ProjectsPanel({
 
       {/* Project cards */}
       {!isCollapsed && (
-        isLoading ? (
+        error ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
+            <span style={{ fontSize: "0.8125rem", color: "var(--q1)" }}>{error}</span>
+            <button
+              onClick={onRefresh}
+              style={{
+                background: "none",
+                border: "1px solid var(--border-default)",
+                borderRadius: "4px",
+                padding: "0.2rem 0.5rem",
+                fontSize: "0.75rem",
+                color: "var(--text-secondary)",
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : isLoading ? (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>Loading...</p>
         ) : projects.length === 0 ? (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", margin: 0 }}>No projects yet.</p>
@@ -630,6 +668,7 @@ export function ProjectsPanel({
             await onUpdateProject?.(id, updates);
             setEditProject(null);
           }}
+          isNarrow={isNarrow}
         />
       )}
     </div>
