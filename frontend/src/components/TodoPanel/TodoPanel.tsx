@@ -131,8 +131,8 @@ function TodoDetailPanel({
     }
   };
 
-  // ── Form body (shared between desktop and mobile layouts) ──
-  const formBody = (
+  // ── Form fields (scrollable) ──────────────────────────────
+  const formFields = (
     <div
       style={{
         padding: "1.125rem 1.25rem",
@@ -272,27 +272,55 @@ function TodoDetailPanel({
       {error && (
         <p style={{ fontSize: "0.8125rem", color: "var(--q1)", margin: 0 }}>{error}</p>
       )}
+    </div>
+  );
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={handleSave}
-          disabled={isSaving || !form.title.trim()}
-          style={{
-            padding: "0.5rem 1.25rem",
-            borderRadius: "6px",
-            border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
-            background: isSaving ? "transparent" : "var(--accent-dim)",
-            color: isSaving ? "var(--text-muted)" : "var(--accent)",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            fontFamily: "inherit",
-            cursor: isSaving ? "not-allowed" : "pointer",
-            transition: "all 0.15s",
-          }}
-        >
-          {isSaving ? "Saving…" : "Save"}
-        </button>
-      </div>
+  // ── Footer (pinned, always visible) ───────────────────────
+  const formFooter = (
+    <div
+      className="bottom-sheet-footer"
+      style={{
+        padding: "0.875rem 1.25rem",
+        borderTop: "1px solid var(--border-subtle)",
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: "0.625rem",
+        flexShrink: 0,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          padding: "0.5rem 1rem",
+          borderRadius: "6px",
+          border: "1px solid var(--border-default)",
+          background: "transparent",
+          color: "var(--text-secondary)",
+          fontSize: "0.875rem",
+          fontFamily: "inherit",
+          cursor: "pointer",
+        }}
+      >
+        Cancel
+      </button>
+      <button
+        onClick={handleSave}
+        disabled={isSaving || !form.title.trim()}
+        style={{
+          padding: "0.5rem 1.25rem",
+          borderRadius: "6px",
+          border: `1px solid ${isSaving ? "var(--border-subtle)" : "var(--border-accent)"}`,
+          background: isSaving ? "transparent" : "var(--accent-dim)",
+          color: isSaving ? "var(--text-muted)" : "var(--accent)",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          fontFamily: "inherit",
+          cursor: isSaving ? "not-allowed" : "pointer",
+          transition: "all 0.15s",
+        }}
+      >
+        {isSaving ? "Saving…" : "Save"}
+      </button>
     </div>
   );
 
@@ -346,7 +374,8 @@ function TodoDetailPanel({
         <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
           <div className="bottom-sheet-handle" />
           {header}
-          <div className="bottom-sheet-body">{formBody}</div>
+          <div className="bottom-sheet-body">{formFields}</div>
+          {formFooter}
         </div>
       </div>
     );
@@ -383,7 +412,8 @@ function TodoDetailPanel({
         }}
       >
         {header}
-        {formBody}
+        {formFields}
+        {formFooter}
       </div>
     </div>
   );
