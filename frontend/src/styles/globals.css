@@ -223,10 +223,15 @@
 /* ── Bottom sheet (mobile edit modals) ───────────────────── */
 .bottom-sheet-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* dvh = dynamic viewport height: excludes browser toolbars (Chrome bottom
+     bar, Safari address bar). Prevents the sheet from rendering behind them.
+     vh fallback for older browsers (rare in 2026). */
+  height: 100vh;
+  height: 100dvh;
   background: rgba(0,0,0,0.65);
-  /* Portaled to document.body so it is never clipped by an overflow container.
-     z-index still set high for any other stacking contexts. */
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -243,6 +248,7 @@
   border-radius: 16px 16px 0 0;
   width: 100%;
   max-height: 92vh;
+  max-height: 92dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
