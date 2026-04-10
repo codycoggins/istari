@@ -12,11 +12,16 @@ import {
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
+    setError(null);
     listTodos()
-      .then((data) => setTodos(data.todos))
-      .catch(() => {})
+      .then((data) => {
+        setTodos(data.todos);
+        setError(null);
+      })
+      .catch(() => setError("Failed to load tasks."))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -58,5 +63,5 @@ export function useTodos() {
     [refresh],
   );
 
-  return { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus };
+  return { todos, isLoading, error, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus };
 }

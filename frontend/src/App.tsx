@@ -8,6 +8,7 @@ import { checkAuth } from "./api/auth";
 import { ChatPanel } from "./components/Chat/ChatPanel";
 import { DigestPanel } from "./components/DigestPanel/DigestPanel";
 import { LoginPage } from "./components/Login/LoginPage";
+import { MobileTabBar, type MobileTab } from "./components/MobileTabBar/MobileTabBar";
 import { NotificationInbox } from "./components/NotificationInbox/NotificationInbox";
 import { ProjectsPanel } from "./components/ProjectsPanel/ProjectsPanel";
 import { TodoPanel } from "./components/TodoPanel/TodoPanel";
@@ -25,7 +26,7 @@ export default function App() {
     checkAuth().then(setIsAuthenticated);
   }, []);
 
-  const { todos, isLoading, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus } = useTodos();
+  const { todos, isLoading, error: todosError, refresh, completeTodo, reopenTodo, updateTodo, toggleTodayFocus } = useTodos();
   const {
     notifications,
     unreadCount,
@@ -36,9 +37,14 @@ export default function App() {
   } = useNotifications();
   const { settings, update: updateSetting } = useSettings();
   const { digests, isLoading: digestsLoading, markReviewed } = useDigests();
-  const { projects, isLoading: projectsLoading, refresh: refreshProjects, updateProject } = useProjects();
+  const { projects, isLoading: projectsLoading, error: projectsError, refresh: refreshProjects, updateProject } = useProjects();
   const [projectFilter, setProjectFilter] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<MobileTab>("chat");
   const chatSendRef = useRef<((msg: string) => void) | null>(null);
+
+  const openTodoCount = todos.filter(
+    (t) => t.status === "open" || t.status === "in_progress" || t.status === "blocked",
+  ).length;
 
   // ── Narrow-screen detection (disables drag resize below 768px) ──
   const [isNarrow, setIsNarrow] = useState<boolean>(
@@ -113,6 +119,15 @@ export default function App() {
     [updateSetting],
   );
 
+  // On mobile, selecting a project also switches to the tasks tab
+  const handleSelectProject = useCallback(
+    (id: number | null) => {
+      setProjectFilter(id);
+      if (isNarrow && id !== null) setActiveTab("tasks");
+    },
+    [isNarrow],
+  );
+
   if (isAuthenticated === null) {
     return (
       <div
@@ -136,56 +151,161 @@ export default function App() {
     return <LoginPage onSuccess={() => setIsAuthenticated(true)} />;
   }
 
+  const appHeader = (
+    <header
+      className="app-header"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0.5rem 1.25rem",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+        <img
+          src="/istari-icon.png"
+          alt="Istari"
+          style={{ width: "28px", height: "28px", borderRadius: "7px" }}
+        />
+        <span
+          style={{
+            fontFamily: "'Cinzel', serif",
+            fontSize: "1.125rem",
+            fontWeight: 500,
+            letterSpacing: "0.14em",
+            color: "var(--accent)",
+          }}
+        >
+          ISTARI
+        </span>
+      </div>
+      <NotificationInbox
+        notifications={notifications}
+        unreadCount={unreadCount}
+        isLoading={notificationsLoading}
+        onMarkRead={markRead}
+        onMarkAllRead={markAllAsRead}
+        onMarkCompleted={markCompleted}
+      />
+    </header>
+  );
+
+  const tasksTabContent = (
+    <>
+      <DigestPanel
+        digests={digests}
+        isLoading={digestsLoading}
+        onMarkReviewed={markReviewed}
+      />
+      <TodoPanel
+        todos={todos}
+        isLoading={isLoading}
+        error={todosError}
+        isNarrow={isNarrow}
+        onComplete={completeTodo}
+        onReopen={reopenTodo}
+        onSave={updateTodo}
+        onToggleToday={toggleTodayFocus}
+        onAskPriorities={handleAskPriorities}
+        onRefresh={refresh}
+        settings={settings}
+        onToggleFocusMode={handleToggleFocusMode}
+        projects={projects}
+        projectFilter={projectFilter}
+        onSelectProject={handleSelectProject}
+      />
+    </>
+  );
+
+  const projectsTabContent = (
+    <ProjectsPanel
+      projects={projects}
+      todos={todos}
+      isLoading={projectsLoading}
+      error={projectsError}
+      isNarrow={isNarrow}
+      selectedProjectId={projectFilter}
+      onSelectProject={handleSelectProject}
+      onRefresh={refreshProjects}
+      onUpdateProject={updateProject}
+    />
+  );
+
+  const sidebarContent = (
+    <>
+      <DigestPanel
+        digests={digests}
+        isLoading={digestsLoading}
+        onMarkReviewed={markReviewed}
+      />
+      <ProjectsPanel
+        projects={projects}
+        todos={todos}
+        isLoading={projectsLoading}
+        error={projectsError}
+        isNarrow={isNarrow}
+        selectedProjectId={projectFilter}
+        onSelectProject={setProjectFilter}
+        onRefresh={refreshProjects}
+        onUpdateProject={updateProject}
+      />
+      <TodoPanel
+        todos={todos}
+        isLoading={isLoading}
+        error={todosError}
+        isNarrow={isNarrow}
+        onComplete={completeTodo}
+        onReopen={reopenTodo}
+        onSave={updateTodo}
+        onToggleToday={toggleTodayFocus}
+        onAskPriorities={handleAskPriorities}
+        onRefresh={refresh}
+        settings={settings}
+        onToggleFocusMode={handleToggleFocusMode}
+        projects={projects}
+        projectFilter={projectFilter}
+        onSelectProject={setProjectFilter}
+      />
+    </>
+  );
+
+  const chatContent = (
+    <ChatPanel
+      onTodoCreated={handleTodoCreated}
+      onRegisterSend={handleRegisterSend}
+      onAuthFailure={() => setIsAuthenticated(false)}
+    />
+  );
+
+  if (isNarrow) {
+    return (
+      <div className="app-layout">
+        {appHeader}
+        <div className="mobile-tab-content">
+          {activeTab === "chat" && chatContent}
+          {activeTab === "tasks" && tasksTabContent}
+          {activeTab === "projects" && projectsTabContent}
+        </div>
+        <MobileTabBar
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          openTodoCount={openTodoCount}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
-      <header
-        className="app-header"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0.5rem 1.25rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-          <img
-            src="/istari-icon.png"
-            alt="Istari"
-            style={{ width: "28px", height: "28px", borderRadius: "7px" }}
-          />
-          <span
-            style={{
-              fontFamily: "'Cinzel', serif",
-              fontSize: "1.125rem",
-              fontWeight: 500,
-              letterSpacing: "0.14em",
-              color: "var(--accent)",
-            }}
-          >
-            ISTARI
-          </span>
-        </div>
-        <NotificationInbox
-          notifications={notifications}
-          unreadCount={unreadCount}
-          isLoading={notificationsLoading}
-          onMarkRead={markRead}
-          onMarkAllRead={markAllAsRead}
-          onMarkCompleted={markCompleted}
-        />
-      </header>
+      {appHeader}
       <div className="app-body">
         <main className="chat-area">
-          <ChatPanel
-            onTodoCreated={handleTodoCreated}
-            onRegisterSend={handleRegisterSend}
-            onAuthFailure={() => setIsAuthenticated(false)}
-          />
+          {chatContent}
         </main>
-        <aside className="todo-sidebar" style={isNarrow ? undefined : { width: sidebarWidth }}>
-          {/* Drag handle — hidden on narrow screens */}
+        <aside className="todo-sidebar" style={{ width: sidebarWidth }}>
+          {/* Drag handle */}
           <div
-            onMouseDown={isNarrow ? undefined : handleResizeMouseDown}
+            onMouseDown={handleResizeMouseDown}
             style={{
               position: "absolute",
               left: 0,
@@ -197,35 +317,7 @@ export default function App() {
             }}
             className="sidebar-resize-handle"
           />
-          <DigestPanel
-            digests={digests}
-            isLoading={digestsLoading}
-            onMarkReviewed={markReviewed}
-          />
-          <ProjectsPanel
-            projects={projects}
-            todos={todos}
-            isLoading={projectsLoading}
-            selectedProjectId={projectFilter}
-            onSelectProject={setProjectFilter}
-            onRefresh={refreshProjects}
-            onUpdateProject={updateProject}
-          />
-          <TodoPanel
-            todos={todos}
-            isLoading={isLoading}
-            onComplete={completeTodo}
-            onReopen={reopenTodo}
-            onSave={updateTodo}
-            onToggleToday={toggleTodayFocus}
-            onAskPriorities={handleAskPriorities}
-            onRefresh={refresh}
-            settings={settings}
-            onToggleFocusMode={handleToggleFocusMode}
-            projects={projects}
-            projectFilter={projectFilter}
-            onSelectProject={setProjectFilter}
-          />
+          {sidebarContent}
         </aside>
       </div>
     </div>
