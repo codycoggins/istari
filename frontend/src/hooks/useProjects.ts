@@ -11,14 +11,16 @@ const POLL_INTERVAL_MS = 30_000;
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const data = await listProjects("active");
       setProjects(data.projects);
+      setError(null);
     } catch {
-      // silently ignore
+      setError("Failed to load projects.");
     }
   }, []);
 
@@ -42,5 +44,5 @@ export function useProjects() {
     [refresh],
   );
 
-  return { projects, isLoading, refresh, updateProject };
+  return { projects, isLoading, error, refresh, updateProject };
 }
