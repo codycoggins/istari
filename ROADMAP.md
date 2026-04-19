@@ -16,7 +16,6 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 ## 1. Tasks that need refinement 
 
 - **Revisit LLM selections** — config/llm_routing.yml
-- **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
 - **Pattern learning** — `learning.py` stub; learn which task types get done, which languish, preferred working hours; improve prioritization suggestions over time
 - **goals.md injection** — read `memory/goals.md` into system prompt; Istari can cross-reference new tasks against stated goals
