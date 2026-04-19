@@ -16,7 +16,6 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 ## 1. Tasks that need refinement 
 
 - **Revisit LLM selections** — config/llm_routing.yml
-- **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
 - **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
 - **Pattern learning** — `learning.py` stub; learn which task types get done, which languish, preferred working hours; improve prioritization suggestions over time
@@ -35,3 +34,4 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
 - **Disable files tool** — Files tool doesn't work when running from Docker; disable it to avoid confusion.
+- **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
