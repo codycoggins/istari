@@ -15,14 +15,7 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 
 ## 1. Tasks that need refinement 
 
-- Bug - When using mail tool, the hyperlinks are only displayed occasionally.
-- In task panel, next to "All" add "No Project" link which would filter task list to items without a project
 - **Revisit LLM selections** — config/llm_routing.yml
-- **Disable files tool** — Running from docker, files tools doesn't work.
-- **Ideas** — Plan ideas tracking, per project.  Could use tasks.  
-- **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
-- **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
-- **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
 - **Pattern learning** — `learning.py` stub; learn which task types get done, which languish, preferred working hours; improve prioritization suggestions over time
 - **goals.md injection** — read `memory/goals.md` into system prompt; Istari can cross-reference new tasks against stated goals
 - **Matrix / Element integration** — chat app alternative to web interface
@@ -37,4 +30,7 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 
 ## 2. Planned and sequenced work
 
-(None)
+- Bug - When using mail tool, the hyperlinks are only displayed occasionally.
+- **Disable files tool** — Files tool doesn't work when running from Docker; disable it to avoid confusion.
+- **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
+- **Morning proactive prompt** — "You have 0 tasks focused for today — want me to suggest some?" (Today's Goals pre-population)
