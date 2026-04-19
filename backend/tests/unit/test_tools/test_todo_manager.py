@@ -149,11 +149,13 @@ class TestTodayFocus:
         results = await mgr.list_today()
         assert len(results) == 0
 
-    async def test_list_today_excludes_old_date(self, db_session):
+    async def test_list_today_rolls_over_old_date(self, db_session):
+        """Todos set for a past day roll over and remain in today's list."""
         mgr = TodoManager(db_session)
         todo = await mgr.create("Yesterday task")
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
         await mgr.update(todo.id, today_date=yesterday)
 
         results = await mgr.list_today()
-        assert len(results) == 0
+        assert len(results) == 1
+        assert results[0].id == todo.id

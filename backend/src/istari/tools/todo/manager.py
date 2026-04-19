@@ -172,7 +172,7 @@ class TodoManager:
         quadrant = self._quadrant_sort()
         stmt = (
             select(Todo)
-            .where(Todo.today_date == today, Todo.status.in_(self._ACTIONABLE))
+            .where(Todo.today_date <= today, Todo.status.in_(self._ACTIONABLE))
             .order_by(quadrant.asc(), Todo.created_at.desc())
         )
         result = await self.session.execute(stmt)
