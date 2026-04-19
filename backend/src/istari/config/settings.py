@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # User identity (injected into agent system prompt)
     user_name: str = ""
 
+    # IANA timezone name for day-boundary calculations (e.g. "America/Los_Angeles").
+    # Empty string = use the system's local timezone.
+    timezone: str = ""
+
     # Worker
     quiet_hours_start: int = 22
     quiet_hours_end: int = 8
