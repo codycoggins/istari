@@ -15,7 +15,6 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 
 ## 1. Tasks that need refinement 
 
-- In task panel, next to "All" add "No Project" link which would filter task list to items without a project
 - **Revisit LLM selections** — config/llm_routing.yml
 - **Disable files tool** — Running from docker, files tools doesn't work.
 - **Ideas** — Plan ideas tracking, per project.  Could use tasks.  
