@@ -1,6 +1,5 @@
 """TODO CRUD endpoints."""
 
-import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +15,7 @@ from istari.api.schemas import (
     TodoUpdate,
 )
 from istari.config.settings import settings
-from istari.tools.todo.manager import TodoManager
+from istari.tools.todo.manager import TodoManager, _local_today
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -52,7 +51,7 @@ async def toggle_today(todo_id: int, db: DB) -> TodoResponse:
     todo = await mgr.get(todo_id)
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
-    flag = todo.today_date != datetime.date.today()
+    flag = todo.today_date != _local_today()
     todo = await mgr.set_today(todo_id, flag)
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
