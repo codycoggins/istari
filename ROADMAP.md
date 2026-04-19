@@ -16,7 +16,6 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 ## 1. Tasks that need refinement 
 
 - **Revisit LLM selections** — config/llm_routing.yml
-- **Disable files tool** — Running from docker, files tools doesn't work.
 - **Ideas** — Plan ideas tracking, per project.  Could use tasks.  
 - **Context compaction** — summarize conversation turns older than 40 before they're dropped from context window
 - **Focus mode enforcement** — proactive agent respects focus mode; no non-urgent nudges during focus hours
@@ -36,3 +35,4 @@ After implementation, we move **Completed Work** to the file `COMPLETED.md` at p
 ## 2. Planned and sequenced work
 
 - Bug - When using mail tool, the hyperlinks are only displayed occasionally.
+- **Disable files tool** — Files tool doesn't work when running from Docker; disable it to avoid confusion.
