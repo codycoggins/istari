@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # Empty string = use the system's local timezone.
     timezone: str = ""
 
+    # Todoist export (scripts/migrate_todoist.py) — personal token from
+    # Todoist → Settings → Integrations → Developer
+    todoist_api_token: str = ""
+
     # Worker
     quiet_hours_start: int = 22
     quiet_hours_end: int = 8

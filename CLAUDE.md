@@ -7,6 +7,7 @@ See `AVAILABLE_CLI_TOOLS.md` for CLI tools available on this machine (eza, bat, 
 - **DB migrations:** up to date — most recent: `d4f6a8b2c1e3` (add recurrence_rule to todos); **Gmail setup:** `python scripts/setup_gmail.py` (place `credentials.json` in `secrets/`); **Calendar setup:** `python scripts/setup_calendar.py` (reuses same credentials); **slash commands:** `/test` runs full CI suite
 - **LLM dependency:** `litellm` replaced with `openai>=1.0` + `anthropic>=0.25` (litellm supply chain incident); all provider routing in `llm/router.py` via `AsyncOpenAI` with per-provider `base_url`
 - **Docker hardening:** api+worker run as non-root `istari` user; `cap_drop: ALL`; `no-new-privileges:true`; `secrets/` and `memory/` mounted read-only; backup volume uses `${BACKUP_DESTINATION_PATH:-./backups}`; `/health` access-log entries suppressed via `_filter_health_check` on `uvicorn.access` (registered at module import time in `api/main.py`)
+- **Todoist export:** one-time migration of active projects + actionable todos via `scripts/migrate_todoist.py` (`--dry-run` supported); `TodoistClient` targets Todoist **API v1** (`/rest/v2` is deprecated/410); set `TODOIST_API_TOKEN` in `.env`. See the Todoist bullet under "Patterns to Follow" for full semantics.
 - **Completed Work** See `COMPLETED.md` at project root.
 - **Next up:** See `ROADMAP.md` at project root for the active roadmap and backlog.
 
@@ -52,6 +53,7 @@ Claude is authorized to run these Docker commands directly without copy-paste:
 - `./scripts/seed.sh` — seed dev data (placeholder)
 - `python scripts/setup_gmail.py` — OAuth2 Gmail setup (requires `credentials.json` from Google Cloud Console)
 - `python scripts/setup_calendar.py` — OAuth2 Calendar setup (reuses same `credentials.json`; writes separate `calendar_token.json`)
+- `python scripts/migrate_todoist.py [--dry-run]` — one-time export of active projects + actionable todos to Todoist (requires `TODOIST_API_TOKEN` in `.env`; run from repo root with venv active)
 - `cd backend && python -c "import asyncio; from istari.worker.jobs.backup import run_backup; asyncio.run(run_backup())"` — trigger a backup immediately (requires `BACKUP_ENABLED=true` and `BACKUP_PASSPHRASE` set in `.env`)
 - `./scripts/restore_db.sh <file.dump.enc>` — decrypt and restore a backup (prompts for passphrase)
 - `ngrok start istari` — expose the app via the static domain `https://tippiest-nonpalatable-darin.ngrok-free.dev` (tunnels to port 3000; requires `COOKIE_SECURE=true` and auth configured in `.env`)
@@ -106,6 +108,7 @@ Claude is authorized to run these Docker commands directly without copy-paste:
   - `digest/manager.py` — DigestManager CRUD (create, list_recent, mark_reviewed)
   - `project/manager.py` — ProjectManager CRUD (create, list_active, get_by_name, set_next_action, set_status, get_stale)
   - `mcp/client.py` — `MCPServerConfig`, `load_mcp_server_configs()`, `MCPManager` async context manager, `mcp_tool_to_agent_tool()`
+  - `todoist/client.py` — `TodoistClient` (async httpx wrapper for Todoist **API v1**), `TodoistError`, `TodoistProjectLimitError`; `todoist/migrate.py` — pure mappers (`map_priority`, `format_task`, `project_comment`, `build_plan`) + `run_migration(session, client, dry_run=)`. One-time export driven by `scripts/migrate_todoist.py`
 - Agents: `backend/src/istari/agents/` — chat.py (ReAct agent loop + `build_tools`/`run_agent`), tools/ (todo.py, memory.py, gmail.py, calendar.py, base.py, **projects.py**), proactive.py (LangGraph proactive graph), memory.py (stub)
 - LLM routing: `backend/src/istari/llm/router.py` (LiteLLM wrapper) + `config.py` (YAML loader)
 - API routes: `backend/src/istari/api/routes/` — chat.py (REST + WebSocket), todos.py, notifications.py, digests.py, memory.py, settings.py
@@ -195,3 +198,4 @@ Claude is authorized to run these Docker commands directly without copy-paste:
 - **`secrets/` volume mount**: OAuth tokens live on the host at `secrets/`; both `api` and `worker` need `- ./secrets:/app/secrets` volume mount in docker-compose.yml or tokens are invisible inside containers.
 - **Google OAuth `invalid_grant`**: Means the refresh token was revoked (not just expired) — re-run `setup_gmail.py` or `setup_calendar.py` to re-authorize. Normal token expiry is handled automatically by auto-refresh.
 - **Glob tool skips gitignored files**: Don't conclude a file is missing because Glob returns nothing — `secrets/*.json` and other gitignored files won't appear. Use `docker compose exec api python -c "from pathlib import Path; print(Path('...').exists())"` to verify file presence inside the container.
+- **Todoist export** (`scripts/migrate_todoist.py`, run from repo root with venv active; `--dry-run` for a read-only preview): migrates `ProjectStatus.active` projects that have ≥1 actionable todo (`open`/`in_progress`/`blocked`; skips `complete`/`deferred`), ordered most-tasks-first. No data loss — non-native fields go into task descriptions (`— Istari metadata —` block) and a per-project comment. On the free-plan project limit, remaining projects' tasks overflow to the pre-existing `#personal` project with a project-name label; idempotent (dedupes projects/tasks by name). Reads `settings.todoist_api_token` (`TODOIST_API_TOKEN` in `.env`). **The legacy `/rest/v2` API is deprecated (410)** — `TodoistClient` targets `/api/v1`, whose GET list responses are cursor-paginated (`{"results": [...], "next_cursor": ...}`), handled by `_get_all()`. Dry-run can't know the exact overflow point (only discovered live via the create-project rejection).
