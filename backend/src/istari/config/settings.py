@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # User identity (injected into agent system prompt)
     user_name: str = ""
 
+    # IANA timezone name for day-boundary calculations (e.g. "America/Los_Angeles").
+    # Empty string = use the system's local timezone.
+    timezone: str = ""
+
     # Todoist export (scripts/migrate_todoist.py) — personal token from
     # Todoist → Settings → Integrations → Developer
     todoist_api_token: str = ""

@@ -2,15 +2,23 @@
 
 import datetime
 import logging
+import zoneinfo
 from typing import Any
 
 from dateutil.rrule import rrulestr
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from istari.config.settings import settings
 from istari.models.todo import Todo, TodoStatus
 
 logger = logging.getLogger(__name__)
+
+
+def _local_today() -> datetime.date:
+    """Return today's date in the configured timezone (falls back to system local)."""
+    tz = zoneinfo.ZoneInfo(settings.timezone) if settings.timezone else None
+    return datetime.datetime.now(tz).date()
 
 
 class TodoManager:
@@ -168,7 +176,7 @@ class TodoManager:
 
     async def list_today(self) -> list[Todo]:
         """Return actionable TODOs focused for today, sorted by quadrant then recency."""
-        today = datetime.date.today()
+        today = _local_today()
         quadrant = self._quadrant_sort()
         stmt = (
             select(Todo)
@@ -180,7 +188,7 @@ class TodoManager:
 
     async def set_today(self, todo_id: int, flag: bool) -> Todo | None:
         """Set or clear today_date on a TODO. flag=True sets today; flag=False clears."""
-        value = datetime.date.today() if flag else None
+        value = _local_today() if flag else None
         return await self.update(todo_id, today_date=value)
 
     async def create_next_recurrence(self, todo: Todo) -> Todo:
