@@ -165,6 +165,31 @@ cd backend && python -c "import asyncio; from istari.worker.jobs.backup import r
 
 Set `BACKUP_DESTINATION_PATH` in `.env` to your preferred location (defaults to iCloud Drive on Mac). Runs daily at 2am via APScheduler. 7-day retention.
 
+### Export to Todoist
+
+One-time migration of your active projects and their open tasks into Todoist.
+
+```bash
+# 1. Add your token to .env (Todoist → Settings → Integrations → Developer)
+TODOIST_API_TOKEN=...
+
+# 2. Preview — reads only, writes nothing
+python scripts/migrate_todoist.py --dry-run
+
+# 3. Perform the migration
+python scripts/migrate_todoist.py
+```
+
+What it does:
+
+- Migrates **active** projects that have at least one actionable task (`open`, `in_progress`, or `blocked`). Completed and deferred tasks are skipped.
+- Preserves everything: fields Todoist can't store natively (status, urgency/importance, tags, source, dates, IDs) are appended to each task's description; a project's goal/notes become a project comment.
+- Maps urgency + importance to Todoist priority, due dates to due dates, and tags to labels.
+- **Free-plan project limit:** projects are created largest-first. When Todoist rejects a new project (plan limit reached), the remaining projects' tasks go into your existing **`#personal`** project, each tagged with a label naming the original project. (A `Personal` project must already exist.)
+- **Safe to re-run:** existing projects and tasks are detected by name and skipped, so a second run won't create duplicates.
+
+Run it from the repo root with the backend venv active. `--dry-run` shows the plan but can't know the exact overflow point (that's only discovered live when Todoist enforces the limit), so a few of the smaller projects listed as "created" may overflow to `#personal` on the real run.
+
 ## Architecture
 
 ```

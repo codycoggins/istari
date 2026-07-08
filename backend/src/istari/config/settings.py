@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # User identity (injected into agent system prompt)
     user_name: str = ""
 
+    # Todoist export (scripts/migrate_todoist.py) — personal token from
+    # Todoist → Settings → Integrations → Developer
+    todoist_api_token: str = ""
+
     # Worker
     quiet_hours_start: int = 22
     quiet_hours_end: int = 8
